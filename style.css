@@ -1,0 +1,54 @@
+.itemTd{
+  text-align: center;
+}
+.Newdiscrip{
+  overflow: auto;
+}
+.tips{
+  display:none;
+  text-align: center;
+}
+
+.Header{
+  width:80%;
+  margin-left: 7%;
+  text-align: center;
+}
+.Header table{
+  width:100%;
+  text-align: center;
+}
+.headerTd{
+  color:blue;
+}
+.Panel{
+  width:80%;
+  margin-left: 10%;
+}
+.Panel th{
+  color: blue;
+}
+#itemdel{
+background-color: red;
+}
+#itemdetail{
+background-color: orange;
+}
+.Footer{
+  width:80%;
+  margin-left: 10%;
+}
+.footerTitle{
+    text-align: center;
+    color:blue;
+}
+.addForm{
+  text-align: center;
+}
+.overLay{
+  width:80%;
+  margin-left: 10%;
+}
+.overLay table{
+    text-align: center;
+}
