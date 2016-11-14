@@ -58,3 +58,41 @@ console.log(lastName)// <- 'Doe'
 var left = 5
 var right = 7
 [left, right] = [right, left]//left=7,right=5
+//3.3.3 Destructuring Function Paremeters
+function carFactory (options = { brand: 'Volkswagen', year: 1999 }) {
+  console.log(options.brand)// <- 'Volkswagen'
+  console.log(options.year)// <- 1999
+}
+carFactory()
+function sumOf (a = 1, b = 2, c = 3) {
+  return a + b + c
+}
+console.log(sumOf(undefined, undefined, 4))// <- 1 + 2 + 4 = 7
+function carFactory (options = { brand: 'Volkswagen', year: 1999 }) {
+  console.log(options.brand)
+  console.log(options.year)
+}
+carFactory()
+// <- 'Volkswagen'
+// <- 1999
+carFactory({ year: 2000 })
+// <- undefined
+// <- 2000
+
+function carFactory ({ brand = 'Volkswagen', year = 1999 }) {
+  console.log(brand)
+  console.log(year)
+}
+carFactory({ year: 2000 })
+// <- 'Volkswagen'
+// <- 2000
+carFactory()
+// <- undefined
+// <- undefined
+function carFactory ({ brand = 'Volkswagen', year = 1999 }={}) {
+  console.log(brand)
+  console.log(year)
+}
+carFactory()
+// <- 'Volkswagen'
+// <- 2000
