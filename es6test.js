@@ -45,3 +45,16 @@ var { boots = true } = character
 console.log(boots)// <- true
 var { metadata: { enemy = 'Satan' } } = character
 console.log(enemy)// <- 'Satan'
+//3.3.2 Destructuring Arrays
+var coordinates = [12, -7]
+var [x, y] = coordinates
+console.log(x)// <- 12
+var names = ['James', 'L.', 'Howlett']
+var [ firstName,, lastName ] = names
+console.log(lastName)// <- 'Howlett'
+var names = ['James', 'L.']
+var [ firstName = 'John',, lastName = 'Doe' ] = names
+console.log(lastName)// <- 'Doe'
+var left = 5
+var right = 7
+[left, right] = [right, left]//left=7,right=5
