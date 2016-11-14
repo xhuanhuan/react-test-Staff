@@ -96,3 +96,4 @@ function carFactory ({ brand = 'Volkswagen', year = 1999 }={}) {
 carFactory()
 // <- 'Volkswagen'
 // <- 2000
+//3.3.4 Use Cases for Destructuring
