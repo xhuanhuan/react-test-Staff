@@ -182,4 +182,73 @@ new (Date.bind.apply(Date, [null, 2015, 11, 31]))// <- Thu Dec 31 2015//es5
 new Date(...[2015, 11, 31])// <- Thu Dec 31 2015//es6
 
 //==================================
-//3.5 Template Literals
+//3.5 Template Literals:``(字符串在可以有引号并且不需要转义)
+var text = `I'm "amazed" at these opportunities!`
+
+//3.5.1 String Interpolation(模板中可以插入任意js表达式)
+var name = 'Shannon'
+var text = `Hello, ${ name }!`
+console.log(text)// <- 'Hello, Shannon!'
+`The time and date is ${ new Date().toLocaleString() }.`// <- 'the time and date is 8/26/2015, 3:15:20 PM'
+`The result of 2+3 equals ${ 2 + 3 }`// <- 'The result of 2+3 equals 5'
+`This a template literal ${ `with another ${ 'one' } embedded inside it` }`// <- 'This a template literal with another one embedded inside it'
+
+//3.5.2 Multiline Template Literals(多行)
+//way1
+var escaped =
+'The first line\n\
+A second line\n\
+Then a third line'
+//way2
+var concatenated =
+'The first line\n' +
+'A second line\n' +
+'Then a third line'
+//way3
+var joined = [
+'The first line',
+'A second line',
+'Then a third line'
+].join('\n')
+//by ES6(es6的模板字支持多行)
+var multiline =
+`The first line
+A second line
+Then a third line`
+
+var book = {
+  title: 'Modular ES6',
+  excerpt: 'Here goes some properly sanitized HTML',
+  tags: ['es6', 'template-literals', 'es6-in-depth']
+}
+var html = `<article>
+  <header>
+    <h1>${ book.title }</h1>
+  </header>
+  <section>${ book.excerpt }</section>
+  <footer>
+    <ul>
+      ${
+        book.tags
+          .map(tag => `<li>${ tag }</li>`)
+          .join('\n      ')
+      }
+    </ul>
+  </footer>
+</article>`
+/*
+<article>
+  <header>
+    <h1>Modular ES6</h1>
+  </header>
+  <section>Here goes some properly sanitized HTML</section>
+  <footer>
+    <ul>
+      <li>es6</li>
+      <li>template-literals</li>
+      <li>es6-in-depth</li>
+    </ul>
+  </footer>
+</article>*/
+
+//3.5.3 Tagged Templates
