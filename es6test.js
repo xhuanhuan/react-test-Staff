@@ -107,3 +107,30 @@ function splitDate (date) {
 }
 var [x, year, month, day] = splitDate('2015-11-06')//year="2015",month="11",day="06",x="2015-11-06"
 //3.4 Rest Parameters and Spread Operator
+function print () {
+  var list = Array.prototype.slice.call(arguments)
+  console.log(list)
+}
+print('a', 'b', 'c')// <- ['a', 'b', 'c']
+//ES6 has a better solution to the problem, and that’s rest parameters.
+//3.4.1 rest Parameters
+function print (...list) {
+  console.log(list)
+}
+print('a', 'b', 'c')// <- ['a', 'b', 'c']
+function print (first, ...list) {
+  console.log(first)// <- 'a'
+  console.log(list)// <- [b', 'c']
+}
+print('a', 'b', 'c')
+
+var sumAll = (...numbers) => numbers.reduce((total, next) => total + next)
+console.log(sumAll(1, 2, 5))// <- 8
+
+function sumAll () {
+  var numbers = Array.prototype.slice.call(arguments)
+  return numbers.reduce(function (a, b) {
+    return a + b
+  })
+}
+console.log(sumAll(1, 2, 5))// <- 8
