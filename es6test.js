@@ -276,3 +276,56 @@ console.log(text)// <- 'Hello MAURICE, I am THRILLED to meet you!'
 
 //========================
 //3.6 Let and Const Statements
+function isItTwo (value) {
+  if (value === 2) {
+    var two = true
+  }
+  return two
+}
+isItTwo(2)// <- true
+isItTwo('two')//undefined
+//==function isItTwo (value) {
+//  var two
+//  if (value === 2) {
+//    two = true
+//  }
+//  return two
+//}
+//变量名提升，变量声明总会提升到作用域的顶部
+
+//3.6.1 Block Scoping and Let Statements
+for (let i = 0; i < 2; i++) {
+  console.log(i)  // <- 0 // <- 1
+}
+console.log(i)// <- i is not defined
+
+//3.6.2 Temporal Dead Zone(let and const 均不存在变量提升，即具有临时死亡区)
+function readName () {
+  return name
+}
+console.log(readName())//报错是因为name在TDZ，即还未声明
+// ReferenceError: name is not defined
+let name = 'Stephen Hawking'
+
+function readName () {
+  return name
+}
+let name
+console.log(readName())//不会报错，name已经离开TDZ
+// <- undefined
+
+//3.6.3 Const Statements(不能被显示的重新赋值，但是可以改变)
+const pi = 3.1415
+{
+  const pi = 6
+  console.log(pi)  // <- 6
+}
+console.log(pi)// <- 3.1415
+
+const people = ['Tesla', 'Musk']
+people = []
+console.log(people)// <- ['Tesla', 'Musk']
+people.push('sa')
+console.log(people)//<- ['Tesla', 'Musk','sa']
+
+//3.6.4 Merits of Const and Let
