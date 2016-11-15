@@ -45,6 +45,8 @@ var { boots = true } = character
 console.log(boots)// <- true
 var { metadata: { enemy = 'Satan' } } = character
 console.log(enemy)// <- 'Satan'
+
+//==================================
 //3.3.2 Destructuring Arrays
 var coordinates = [12, -7]
 var [x, y] = coordinates
@@ -58,6 +60,8 @@ console.log(lastName)// <- 'Doe'
 var left = 5
 var right = 7
 [left, right] = [right, left]//left=7,right=5
+
+//==================================
 //3.3.3 Destructuring Function Paremeters
 function carFactory (options = { brand: 'Volkswagen', year: 1999 }) {
   console.log(options.brand)// <- 'Volkswagen'
@@ -96,6 +100,8 @@ function carFactory ({ brand = 'Volkswagen', year = 1999 }={}) {
 carFactory()
 // <- 'Volkswagen'
 // <- 2000
+
+//==================================
 //3.3.4 Use Cases for Destructuring
 function getCoordinates () {
   return { x: 10, y: 22, z: -1, type: '3d' }
@@ -106,13 +112,17 @@ function splitDate (date) {
   return rdate.exec(date)
 }
 var [x, year, month, day] = splitDate('2015-11-06')//year="2015",month="11",day="06",x="2015-11-06"
+
+//==================================
 //3.4 Rest Parameters and Spread Operator
 function print () {
   var list = Array.prototype.slice.call(arguments)
   console.log(list)
 }
 print('a', 'b', 'c')// <- ['a', 'b', 'c']
+
 //ES6 has a better solution to the problem, and that’s rest parameters.
+//==================================
 //3.4.1 rest Parameters
 function print (...list) {
   console.log(list)
@@ -134,3 +144,42 @@ function sumAll () {
   })
 }
 console.log(sumAll(1, 2, 5))// <- 8
+
+//==================================
+//4.4.2 Spread Operator
+function cast () {
+  return [...arguments]//将参数转换成数组
+}
+cast('a', 'b', 'c')// <- ['a', 'b', 'c']
+function cast () {
+  return ['left', ...arguments, 'right']
+}
+cast('a', 'b', 'c')// <- ['left',a', 'b', 'c','right']
+//合并数组
+var all = [1, ...[2, 3], 4, ...[5], 6, 7]
+console.log(all)// <- [1, 2, 3, 4, 5, 6, 7]
+function multiply (left, right) {
+  return left * right
+}
+var result = multiply(...[2, 3])
+console.log(result)// <- 6
+
+function print (...list) {
+  console.log(list)
+}
+print(1, ...[2, 3], 4, ...[5])// <- ['1', '2', '3', '4', '5']
+
+var list = ['a', 'b', 'c', 'd', 'e']
+var first = list.shift()//a,list=['b', 'c', 'd', 'e']
+var second = list.shift()//b,list=['c', 'd', 'e']
+console.log(first)// <- 'a'
+
+var [first, second, ...rest] = ['a', 'b', 'c', 'd', 'e']
+console.log(rest)// <- ['c', 'd', 'e']
+
+
+new (Date.bind.apply(Date, [null, 2015, 11, 31]))// <- Thu Dec 31 2015//es5
+new Date(...[2015, 11, 31])// <- Thu Dec 31 2015//es6
+
+//==================================
+//3.5 Template Literals
