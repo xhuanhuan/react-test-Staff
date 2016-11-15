@@ -252,3 +252,27 @@ var html = `<article>
 </article>*/
 
 //3.5.3 Tagged Templates
+var text = String.raw`The "\n" newline won't result in a new line.
+It'll be escaped.`//String.raw使得\n不是换行，而是普通的字符串
+console.log(text)// The "\n" newline won't result in a new line.// It'll be escaped.
+
+function tag (parts, ...values) {
+  return parts.reduce(
+    (all, part, i) => all + values[i - 1] + part
+  )
+}
+var text=tag(['Hello, ', '. I am ', ' to meet you!'], 'Maurice', 'thrilled');
+//==var text = tag`Hello, ${ name }. I am ${ emotion } to meet you!`
+console.log(text);//Hello, Maurice. I am thrilled to meet you!
+function upper (parts, ...values) {
+  return parts.reduce(
+    (all, part, i) => all + values[i - 1].toUpperCase() + part
+  )
+}
+var name = 'Maurice'
+var emotion = 'thrilled'
+var text = upper`Hello, ${ name }. I am ${ emotion } to meet you!`
+console.log(text)// <- 'Hello MAURICE, I am THRILLED to meet you!'
+
+//========================
+//3.6 Let and Const Statements
