@@ -97,3 +97,13 @@ carFactory()
 // <- 'Volkswagen'
 // <- 2000
 //3.3.4 Use Cases for Destructuring
+function getCoordinates () {
+  return { x: 10, y: 22, z: -1, type: '3d' }
+}
+var { x, y } = getCoordinates()//x=10,y=22
+function splitDate (date) {
+  var rdate = /(\d+).(\d+).(\d+)/
+  return rdate.exec(date)
+}
+var [x, year, month, day] = splitDate('2015-11-06')//year="2015",month="11",day="06",x="2015-11-06"
+//3.4 Rest Parameters and Spread Operator
