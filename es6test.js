@@ -329,3 +329,158 @@ people.push('sa')
 console.log(people)//<- ['Tesla', 'Musk','sa']
 
 //3.6.4 Merits of Const and Let
+
+
+
+//=================================================================
+//============Chapter 4 : Classes, Symbols, and Objects============
+//=================================================================
+//4.1 Classes(类和结构一样，也是语法糖，是基于原型继承的语法糖)
+//没有变量名提升
+
+//4.1.1 class fundermentals
+function Fruit (name, calories) {
+  this.name = name
+  this.calories = calories
+  this.pieces = 1
+}
+Fruit.prototype.chop = function () {
+  this.pieces++
+}
+Fruit.prototype.bite = function (person) {
+  if (this.pieces < 1) {
+    return
+  }
+  const calories = this.calories / this.pieces
+  person.satiety += calories
+  this.calories -= calories
+  this.pieces--
+}
+//es6(方法声明之间没有逗号)(构造函数是可选的，比一定要有)
+class Fruit {
+  constructor (name, calories) {
+    this.name = name
+    this.calories = calories
+    this.pieces = 1
+  }
+  chop () {
+    this.pieces++
+  }
+  bite (person) {
+    if (this.pieces < 1) {
+      return
+    }
+    const calories = this.calories / this.pieces
+    person.satiety += calories
+    this.calories -= calories
+    this.pieces--
+  }
+}
+class Person {
+  constructor () {
+    this.satiety = 0
+  }
+  eat (fruit) {
+    while (fruit.pieces > 0) {
+      fruit.bite(this)
+    }
+  }
+}
+const plum = new Fruit('plum', 40)
+const person = new Person()
+person.eat(plum)
+console.log(person.satiety)
+// <- 40
+//可以这样声明类，省略类名
+const Person = class {
+  constructor (name) {
+    this.name = name
+  }
+}
+const createPersonClass = name => class extends Person {
+  constructor () {
+    super(name)
+  }
+}
+const Jake = createPersonClass('Jake')
+const Jake1 =new Jake()
+console.log(Jake1.name)//'Jake'
+
+//4.1.2 Properties and Methods in Classes
+class Log {
+  constructor (...args) {
+    console.log(args)
+  }
+}
+new Log('a', 'b', 'c')// <- ['a' 'b' 'c']（参数可以作为构造函数的参数，用来初始化类）
+
+class Counter {
+  constructor (start) {
+    this.count = start
+  }
+  get next () {
+    return this.count++
+  }
+}
+const counter = new Counter(2)
+console.log(counter.next)// <- 2
+console.log(counter.next)// <- 3
+console.log(counter.next)// <- 4
+
+//-----getters and setters
+class LocalStorage {
+  constructor (key) {
+    this.key = key
+  }
+  get data () {
+    return JSON.parse(localStorage.getItem(this.key))
+  }
+  set data (data) {
+    localStorage.setItem(this.key, JSON.stringify(data))
+  }
+}
+const ls = new LocalStorage('groceries')
+ls.data = ['apples', 'bananas', 'grapes']
+console.log(ls.data)// <- ['apples', 'bananas', 'grapes']
+//静态变量，还可以是静态方法static get, static set
+class MathHelper {
+  static sum (...numbers) {
+    return numbers.reduce((a, b) => a + b)
+  }
+}
+console.log(MathHelper.sum(1, 2, 3, 4, 5))// <- 15
+
+//4.1.3 Extending JavaScript Classes
+/*const util = require('util')
+function Banana () {
+  Fruit.call(this, 'banana', 105)
+}
+util.inherits(Banana, Fruit)
+Banana.prototype.slice = function () {
+  this.pieces = 12
+}
+function Banana () {
+  Fruit.call(this, 'banana', 105)
+}
+Banana.prototype = Object.create(Fruit.prototype)
+Banana.prototype.slice = function () {
+  this.pieces = 12
+}*/
+class Banana extends Fruit {
+  constructor () {
+    super('banana', 105)
+  }
+  slice () {
+    this.pieces = 12
+  }
+}
+const person = { satiety: 0 }
+const banana = new Banana()
+banana.slice()
+banana.bite(person)
+console.log(person.satiety)// <- 8.75
+console.log(banana.pieces)// <- 11
+console.log(banana.calories)// <- 96.25
+
+//===================================
+//==========4.2 Symbols==========
