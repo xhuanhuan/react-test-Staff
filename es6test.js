@@ -606,3 +606,30 @@ console.log(Symbol.keyFor(Symbol.iterator))// <- undefined(说明Symbol.iterator
 
 //=======================================
 //4.3 Object Built-in Improvements
+//之前的Object.getOwnPropertySymbols,其他静态方法：Object.assign, Object.is, and Object.setPrototypeOf
+
+//4.3.1 Extending objects with Object.assign(继承object)
+const defaults = {
+  first: 'first',
+  second: 'second'
+}
+function print (options) {
+  console.log(Object.assign({}, defaults, options))
+}
+print()// <- { first: 'first', second: 'second' }
+print({ third: 3 })// <- { first: 'first', second: 'second', third: 3 }
+print({ second: false })// <- { first: 'first', second: false }
+Object.assign({}, { a: ['b', 'c', 'd'] }, { a: ['e', 'f'] })// <- { a: ['e', 'f'] }(被覆盖而不是追加)
+Object.assign({}, { a: { b: 'c', d: 'e' } }, { a: { f: 'g' } })// <- { a: { f: 'g' } }
+
+//4.3.2 Comparing objects with Object.is(相当于===，但又不完全相同)
+NaN === NaN// <- false
+Object.is(NaN, NaN)// <- true
+-0 === +0// <- true
+Object.is(-0, +0)// <- false
+
+//4.3.3 Object.setPrototypeOf
+const baseCat = { type: 'cat', legs: 4 }
+const cat = Object.create(baseCat)//ES5
+cat.name = 'Milanesita'
+const cat = Object.setPrototypeOf({ name: 'Milanesita' }, baseCat)//ES6//ps:影响性能，建议用ES5的 Object.create
