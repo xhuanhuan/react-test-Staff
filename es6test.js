@@ -482,5 +482,127 @@ console.log(person.satiety)// <- 8.75
 console.log(banana.pieces)// <- 11
 console.log(banana.calories)// <- 96.25
 
+
 //===================================
-//==========4.2 Symbols==========
+//==========4.2 Symbols（local glabol well-known）==========
+//没有字面表示，是用于实现某种协议
+
+//4.2.1 Local Symbols
+const first = Symbol()
+const oops = new Symbol()// <- TypeError, Symbol is not a constructor
+const mystery = Symbol('my symbol')
+//symbol是唯一的，即使描述一样彼此也是不同的
+console.log(Symbol() === Symbol())// <- false
+console.log(Symbol('my symbol') === Symbol('my symbol'))// <- false
+//其类型是symbol
+console.log(typeof Symbol())// <- 'symbol'
+//Symbol可以作为属性名，
+const weapon = Symbol('weapon')
+const character = {
+  name: 'Penguin',
+  [weapon]: 'umbrella'
+}
+console.log(character[weapon])
+// <- 'umbrella'
+//symbol 会被隐藏
+const weapon = Symbol('weapon')
+const character = {
+  name: 'Penguin',
+  sex:'women',
+  [weapon]: 'umbrella'
+  //  [weapon]:()=>({key:'value'})
+}
+for (let key in character) {
+  console.log(key)  // <- 'name'// <- 'sex'
+  //console.log(key)  // <- 'name'// <- 'sex'//[weapon]
+}
+console.log(JSON.stringify(character))// <- '{"name":"Penguin"}'
+//symbol只能被专门的方法获取
+console.log(Object.getOwnPropertySymbols(character))// <- [Symbol(weapon)]
+
+//4.2.2 Practical use cases for Symbols
+//Defining Protocols through Symbols
+//JSON.stringify获取toJSON返回的内容，如果toJSON不是函数则返回所以属性
+const character = {
+  name: 'Thor',
+  toJSON: () => ({
+    key: 'value'
+  })
+}
+console.log(JSON.stringify(character))// <- '"{"key":"value"}"'
+const character = {
+  name: 'Thor',
+  toJSON: true
+}
+console.log(JSON.stringify(character))// <- '"{"name":"Thor","toJSON":true}"'（toJSON不是函数）
+//
+const json = Symbol('alternative to toJSON')
+const character = {
+  name: 'Thor',
+  [json]: () => ({
+    key: 'value'
+  })
+}
+stringify(character)
+function stringify (target) {
+  if (json in target) {
+    return JSON.stringify(target[json]())//[json]为函数
+  }
+  return JSON.stringify(target)//[json]为值
+}
+
+//4.2.3 Global Symbol Registry
+//two methods:Symbol.for and Symbol.keyFor
+
+//Getting symbols with Symbol.for(key)(如果存在就返回该symbol,否则创建并添加该symbol进全局 symbol Registry)it looks for a symbol under a key, creates one if it didn’t already exist, and then returns the symbol.
+const example = Symbol.for('example')
+console.log(example === Symbol.for('example'))// <- true
+//Using Symbol.keyFor(symbol) to retrieve symbol keys(获取symbol返回其key,如果该symbol不存在则返回undifined)
+const example1 = Symbol.for('example')
+console.log(Symbol.keyFor(example1))//'example'
+console.log(Symbol.keyFor(Symbol()))// <- undefined
+//局部symbol不是全局symbol的一部分
+const example = Symbol.for('example')
+console.log(Symbol.keyFor(Symbol('example')))// <- undefined
+
+//Best Practices and Considerations
+const d = document
+const frame = d.body.appendChild(d.createElement('iframe'))
+const framed = frame.contentWindow
+const s1 = window.Symbol.for('example')
+const s2 = framed.Symbol.for('example')
+console.log(s1 === s2)// <- true
+
+
+//4.2.4 Well-known Symbols
+//Symbol.toPrimitive
+const morphling = {
+  [Symbol.toPrimitive](hint) {
+    if (hint === 'number') {
+      return Infinity
+    }
+    if (hint === 'string') {
+      return 'a lot'
+    }
+    return '[object Morphling]'
+  }
+}
+console.log(+morphling)// <- Infinity
+console.log(`That is ${ morphling }!`)// <- 'That is a lot!'
+console.log(morphling + ' is powerful')// <- '[object Morphling] is powerful'
+//Symbol.match
+const text = '/an example string/'
+const regex = /an example string/
+regex[Symbol.match] = false//如果是true则会被当成字符串而不是正则表达式了
+console.log(text.startsWith(regex))// <- true
+
+//Shared across realms but not in the registry
+//Symbol.iterator
+const frame = document.createElement('iframe')
+document.body.appendChild(frame)
+console.log(Symbol.iterator === frame.contentWindow.Symbol.iterator)// <- true
+console.log(Symbol.keyFor(Symbol.iterator))// <- undefined(说明Symbol.iterator不在全局注册表中)
+
+
+//=======================================
+//4.3 Object Built-in Improvements
