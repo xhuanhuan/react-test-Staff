@@ -633,3 +633,121 @@ const baseCat = { type: 'cat', legs: 4 }
 const cat = Object.create(baseCat)//ES5
 cat.name = 'Milanesita'
 const cat = Object.setPrototypeOf({ name: 'Milanesita' }, baseCat)//ES6//ps:影响性能，建议用ES5的 Object.create
+
+
+
+//===================================================
+//===============Iteration and Flow Control==========
+//============Promises\Iterators\Generators =========
+
+//5.1 Promises:最终将成为可用的值的代表
+
+//5.1.1 Getting Started with Promises
+fetch('/items')//获取请求
+fetch('/items').then(response => {
+  // do something
+})//回调函数then,当/items资源加载完毕时调用
+
+const p = fetch('/items')
+p.then(res => {
+  // handle response
+})
+p.catch(error => {
+  // handle error
+})
+//or
+const p = fetch('/items')
+p.then(
+  res => {
+    // handle response
+  },
+  err => {
+    // handle error
+  }
+)
+//  or
+const p = fetch('/items')
+p.then(res => {
+  // handle response
+})
+p.then(null, error => {
+  // handle error
+})//.then(null,err)相当于.catch(err)
+
+//Promise
+new Promise(function (resolve, reject) {
+  setTimeout(function () {
+    if (Math.random() > 0.5) {
+      resolve('random success')
+    } else {
+      reject(new Error('random failure'))
+    }
+  }, 1000)
+})
+//promise响应后就会执行.then,若被拒绝，则执行.catch
+Promise
+  .resolve({ result: 123 })
+  .then(data => console.log(data.result))
+// <- 123
+Promise
+  .resolve(2)
+  .then(x => x * 7)
+  .then(x => x - 3)
+  .then(x => console.log(x))
+// <- 11
+Promise
+  .resolve(2)
+  .then(x => new Promise(function (resolve) {
+    setTimeout(() => resolve(x * 1000), x * 1000)
+  }))
+  .then(x => console.log(x))
+// <- 2000
+const p = fetch('/items')
+  .then(res => { throw new Error('unexpectedly'); })
+  .catch(error => console.error(error))
+  //Error: unexpectedly
+
+  //5.1.2 Promise Continuation and Chaining
+//resolve can call reject to throw err
+  new Promise((resolve, reject) => reject(new Error('oops')))
+  .catch(err => console.error(err))//.catch捕捉错误
+// resolve itself can throw err
+new Promise((resolve, reject) => { throw new Error('oops'); })
+  .catch(err => console.error(err))
+//
+Promise
+  .resolve(2)
+  .then(x => { throw new Error('failed'); })
+  .catch(err => console.error(err))
+//Error: failed
+//上述过程分解如下：
+const p1 = Promise.resolve(2)
+const p2 = p1.then(x => { throw new Error('failed'); })
+const p3 = p2.catch(err => console.error(err))
+//Error: failed
+const p1 = Promise.resolve(2)
+const p2 = p1.then(x => { throw new Error('failed'); })
+const p3 = p2.then(x => x * 2)
+const p4 = p3.catch(err => console.error(err))
+//Error: failed
+const p1 = Promise.resolve(2)
+const p2 = p1.then(x => { throw new Error('failed'); })
+const p3 = p2.catch(err => console.error(err))
+const p4 = p3.then(() => console.log('crisis averted'))
+//Error: failed
+//crisis averted
+const p1 = Promise.resolve(2)
+const p2 = p1.then(x => { throw new Error('failed'); })
+const p3 = p2.catch(err => { throw new Error('oops', err); })
+const p4 = p3.catch(err => console.error(err))
+//Error: oops
+fetch('/items')
+  .then(res => res.a.prop.that.does.not.exist)
+  .catch(err => console.error(err.message))
+  .catch(err => console.error(err.message))
+// <- 'Cannot read property "prop" of undefined'(只会报一次，因为第一个catch执行时还没有错误)
+const p = fetch('/items').then(res => res.a.prop.that.does.not.exist)
+p.catch(err => console.error(err.message))
+p.catch(err => console.error(err.message))
+// <- 'Cannot read property "prop" of undefined'
+// <- 'Cannot read property "prop" of undefined'
