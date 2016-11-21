@@ -1792,3 +1792,317 @@ async function process () {
   }
 }
 process()
+
+
+
+//===========================================================
+//========Chapter 6:Leveraging ECMAScript Collections========
+//===========================================================
+
+//turn a object to hash-map，这种方法的缺陷：Keys限制在字符串类型；迭代冗长（Object.keys(registry).forEach）；安全问题
+const registry = {}
+function add (name, meta) {
+  registry[name] = meta
+}
+function get (name) {
+  return registry[name]
+}
+add('contra', { description: 'Asynchronous flow control' })
+add('dragula', { description: 'Drag and drop' })
+add('woofmark', { description: 'Markdown and WYSIWYG editor' })
+//解决安全问题：添加前缀 or .Object.create(null)
+const registry = {}
+function add (name, meta) {
+  registry['pkg:' + name] = meta
+}
+function get (name) {
+  return registry['pkg:' + name]
+}
+//
+const registry = Object.create(null)
+function add (name, meta) {
+  registry[name] = meta
+}
+function get (name) {
+  return registry[name]
+}
+//迭代问题
+const registry = Object.create(null)
+function list () {
+  return Object.keys(registry).map(key => [key, registry[key]])
+}
+
+const registry = Object.create(null)
+registry[Symbol.iterator] = () => {
+  const keys = Object.keys(registry)
+  return {
+    next () {
+      const done = keys.length === 0
+      const key = keys.shift()
+      const value = [key, registry[key]]
+      return { done, value }
+    }
+  }
+}
+console.log([...registry])
+
+//====================
+//6.1 Using ES6 Maps
+//6.1.1 First Look into ES6 Maps
+//map.set()
+const map = new Map()
+map.set('contra', { description: 'Asynchronous flow control' })
+map.set('dragula', { description: 'Drag and drop' })
+map.set('woofmark', { description: 'Markdown and WYSIWYG editor' })
+console.log([...map])
+map.has('contra')// <- true
+map.has('jquery')// <- false
+//-----map.has()
+const map = new Map([[1, 'a'],[2,'r']])
+map.has(1)// <- true
+map.has(2)// <- true
+map.has('1')// <- false
+map.has('a')// <- false
+//--------map.get()
+map.get('contra')// <- { description: 'Asynchronous flow control' }
+//-----map.delete()
+map.delete('contra')
+map.get('contra')// <- undefined
+//---new Map()
+const map = new Map([[1, 2], [3, 4], [5, 6]])
+map.has(1)// <- true
+map.clear()
+map.has(1)// <- false
+[...map]// <- []
+//-------.size
+const map = new Map([[1, 2], [3, 4], [5, 6]])
+map.size// <- 3
+map.delete(3)
+map.size// <- 2
+map.clear()
+map.size// <- 0
+//====使用任意对象
+const map = new Map()
+map.set(new Date(), function today () {})
+map.set(() => 'key', { key: 'door' })
+map.set(Symbol('items'), [1, 2])
+//---Symbol对象
+const map = new Map()
+const key = Symbol('items')
+map.set(key, [1, 2])
+map.get(Symbol('items')); // <- undefined // not the same reference as "key"
+map.get(key)// <- [1, 2]
+//---for...of 遍历
+const items = [
+  [new Date(), function today () {}],
+  [() => 'key', { key: 'door' }],
+  [Symbol('items'), [1, 2]]
+]
+const map = new Map()
+for (let [key, value] of items) {
+  map.set(key, value)
+}
+//====初始化
+const items = [
+  [new Date(), function today () {}],
+  [() => 'key', { key: 'door' }],
+  [Symbol('items'), [1, 2]]
+]
+const map = new Map(items)
+//产生一个副本
+const copy = new Map(map)
+// consume
+const map = new Map()
+map.set(1, 'one')
+map.set(2, 'two')
+map.set(3, 'three')
+console.log([...map])// <- [[1, 'one'], [2, 'two'], [3, 'three']]
+//总结几个es6新功能
+const map = new Map()
+map.set(1, 'one')
+map.set(2, 'two')
+map.set(3, 'three')
+for (let [key, value] of map) {
+  console.log(`${ key }: ${ value }`)
+  // <- '1: one'
+  // <- '2: two'
+  // <- '3: three'
+}
+//key唯一,重复赋值只会重写
+const map = new Map()
+map.set('a', 1)
+map.set('a', 2)
+map.set('a', 3)
+console.log([...map])// <- [['a', 3]]
+//在map中，NaN相等
+console.log(NaN === NaN)// <- false
+const map = new Map()
+map.set(NaN, 'a')
+map.set(NaN, 'b')
+console.log([...map])// <- [[NaN, 'b']]
+//map.entries()返回key/value迭代器
+map[Symbol.iterator] === map.entries// <- true
+//.keys(),.values()
+const map = new Map([[1, 2], [3, 4], [5, 6]])
+[...map.keys()]// <- [1, 3, 5]
+[...map.values()]// <- [2, 4, 6]
+[...map.entries()]// <- [[1, 2], [3, 4], [5, 6]]
+//map.forEach()
+const map = new Map([[NaN, 1], [Symbol(), 2], ['key', 'value']])
+map.forEach((value, key) => console.log(key, value))
+// <- NaN 1
+// <- Symbol() 2
+// <- 'key' 'value'
+
+//6.1.2 Hash-Maps and the DOM
+//联系DOM元素与API对象 by ES5（十分冗长）
+const map = []
+function customThing (el) {
+  const mapped = findByElement(el)
+  if (mapped) {
+    return mapped
+  }
+  const api = {
+    // custom thing api methods
+  }
+  const entry = storeInMap(el, api)
+  api.destroy = destroy.bind(null, entry)
+  return api
+}
+function storeInMap (el, api) {
+  const entry = { el: el, api: api }
+  map.push(entry)
+  return entry
+}
+function findByElement (el) {
+  for (const i = 0; i < map.length; i++) {
+    if (map[i].el === el) {
+      return map[i].api
+    }
+  }
+}
+function destroy (entry) {
+  const i = map.indexOf(entry)
+  map.splice(i, 1)
+}
+//结合Map，DOM to API
+const map = new Map()
+function customThing (el) {
+  const mapped = findByElement(el)
+  if (mapped) {
+    return mapped
+  }
+  const api = {
+    // custom thing api methods
+    destroy: destroy.bind(null, el)
+  }
+  storeInMap(el, api)
+  return api
+}
+function storeInMap (el, api) {
+  map.set(el, api)
+}
+function findByElement (el) {
+  return map.get(el)
+}
+function destroy (el) {
+  map.delete(el)
+}
+//再简化
+const map = new Map()
+function customThing (el) {
+  const mapped = map.get(el)
+  if (mapped) {
+    return mapped
+  }
+  const api = {
+    // custom thing api methods
+    destroy: () => map.delete(el)
+  }
+  map.set(el, api)
+  return api
+}
+
+
+//==================================
+//6.2 Understanding and Using WeakMap
+//WeakMap可看做Map的子集 具有许多限制：不可迭代；没有entries、keys、values、forEach、clear等方法，其key必须是Object(Symbol是value类型的，不被允许使用)
+const map = new WeakMap()
+map.set(Date.now, 'now')
+map.set(1, 1)// <- TypeError
+map.set(Symbol(), 2)// <- TypeError
+//仍可初始化
+const map = new WeakMap([
+  [new Date(), 'foo'],
+  [() => 'bar', 'baz']
+])
+//仍有has、get、delete方法
+const date = new Date()
+const map = new WeakMap([[date, 'foo'], [() => 'bar', 'baz']])
+map.has(date)// <- true
+map.get(date)// <- 'foo'
+map.delete(date)
+map.has(date)// <- false
+
+//6.2.1 Is WeakMap Strictly Worse Than Map?
+
+/*Map 的一个最大弊端就是它会导致作为key的对象增加一个引用，
+因此导致GA无法回收这个对象，如果大量使用object作为Map的key会导致大量的内存泄露。
+WeakMap就是为了解决这个问题，在WeakMap中对作为key的对象是一个弱引用，
+也就是说，GA在计算对象引用数量的时候并不会把弱引用计算进去。
+这样当一个对象除了WeakMap没有其他引用的时候就会被GA回收掉。*/
+
+
+//===========================================
+//==============6.3 Sets in ES6==============
+//有.keys, .values, .entries, .forEach, .has, .delete, and .clear
+//增加元素 .add
+const set = new Set()
+set.add({ an: 'example' })
+//set可迭代，不一定成对，类似数组
+const set = new Set(['a', 'b', 'c'])
+console.log([...set])// <- ['a', 'b', 'c']
+//set中的元素是唯一的
+const set = new Set(['a', 'b', 'b', 'c', 'c'])
+console.log([...set])// <- ['a', 'b', 'c']
+//div已经包含在set中，再次添加不会改变size的值（set 元素的唯一性）
+function divs () {
+  return [...document.querySelectorAll('div')]
+}
+const set = new Set(divs())
+console.log(set.size)// <- 56
+divs().forEach(div => set.add(div))
+console.log(set.size)// <- 56
+
+
+//=============================
+//=====6.4 ES6 WeakSets========
+//类似于weakmap，weakset也是不可has 代，每个值必须是唯一的object引用，若唯一值引用，则垃圾回收
+//只有.add, .delete .has 没有get(因为set是一维的)
+const set = new WeakSet()
+set.add('a')// <- TypeError
+set.add(Symbol())// <- TypeError（因为不是Object数据类型）
+//认可使用迭代器初始化
+const set = new WeakSet([
+  new Date(),
+  {},
+  () => {},
+  [1]
+])
+//car example
+const cars = new WeakSet()
+class Car {
+  constructor() {
+    cars.add(this)
+  }
+  fuelUp () {
+    if (!cars.has(this)) {
+      throw new TypeError('Car#fuelUp called on incompatible object!')
+    }
+  }
+}
+
+//总结
+//使用集合来扩展使用元数据：考虑 weak
+//只挂心是否存在，用 Set
+//考虑创建缓存，用 Map
