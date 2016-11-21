@@ -745,9 +745,1050 @@ fetch('/items')
   .then(res => res.a.prop.that.does.not.exist)
   .catch(err => console.error(err.message))
   .catch(err => console.error(err.message))
-// <- 'Cannot read property "prop" of undefined'(只会报一次，因为第一个catch执行时还没有错误)
+// <- 'Cannot read property "prop" of undefined'(只会报一次，因为第一个catch执行后没有错误产生)
 const p = fetch('/items').then(res => res.a.prop.that.does.not.exist)
 p.catch(err => console.error(err.message))
 p.catch(err => console.error(err.message))
 // <- 'Cannot read property "prop" of undefined'
 // <- 'Cannot read property "prop" of undefined'
+const p1 = fetch('/items')
+const p2 = p1.then(res => res.a.prop.that.does.not.exist)
+const p3 = p2.catch(err => {})
+const p4 = p3.catch(err => console.error(err.message))
+//不会抛出错误，因为p3捕捉了错误，有没有产生新的错误
+
+//5.1.3 Creating a Promise From Scratch(从头开始创建一个Promise)
+//使用new Promise()来新建一个Promise
+new Promise(resolve => resolve('result'))
+new Promise((resolve, reject) => reject(new Error('reason')))
+//resolve 和 rejetion一样是 异步执行
+new Promise(resolve => setTimeout(resolve, 2000))//2秒钟后建立一个promise
+//可靠性：一旦promise变成resolved(fulfilled)或者rejected就不能改变
+function resolveUnderThreeSeconds (delay) {
+  return new Promise(function (resolve, reject) {
+    setTimeout(resolve, delay)
+    setTimeout(reject, 3000)
+  })
+}
+resolveUnderThreeSeconds(2000); // becomes fulfilled after 2s（不会再）
+resolveUnderThreeSeconds(7000); // becomes rejected after 3s
+//等价于简单的fetch('/items'),但只有resolve可以这样，reject不行，reject总是导致promise被拒绝
+new Promise(resolve => resolve(fetch('/items')))
+//可以事先设置promise的值
+new Promise(resolve => resolve(12))
+//在仅仅只需要设置promise值的时候，避免声明resolver函数，语法上更友好
+Promise.resolve(12)
+//通过then来创建一个promise
+Promise
+  .resolve({ then: resolve => resolve(12) })
+  .then(x => console.log(x))// <- 12
+
+
+//5.1.4 Promise States and Fates
+//三个状态:pending, fulfilled, and rejected
+//.then()返回promise
+fetch('/items')
+  .then(() => fetch('/item/first'))
+  .then(() => console.log('done'))
+
+fetch('/items')
+  .then(res => res.json())
+  .then(items => fetch(`/item/${ items[0].slug }`))
+  .then(res => res.json())
+  .then(item => console.log(item))
+//.then返回 value
+Promise
+  .resolve([1, 2, 3])
+  .then(values => values.map(value => value * 2))
+  .then(values => console.log(values))
+  // <- [2, 4, 6]
+
+
+//------5.1.5 Leveraging Promise.all and Promise.race----
+//-----实现并行的两个方法：Promise.all and Promise.race.-----
+
+//Promise.all
+//并行执行，分开打印
+fetch('/products/chair')
+  .then(r => r.json())
+  .then(p => console.log(p))
+fetch('/products/table')
+  .then(r => r.json())
+  .then(p => console.log(p))
+//合并打印，当其中一个被拒绝，则p设置为拒绝原因
+Promise
+  .all([
+    fetch('/products/chair'),
+    fetch('/products/table')
+  ])
+  .then(products => console.log(products[0], products[1]))
+//参数解构
+  Promise
+    .all([
+      fetch('/products/chair'),
+      fetch('/products/table')
+    ])
+    .then(([chair, table]) => console.log(chair, table))
+//拒绝案例
+const p1 = Promise.reject('failed')
+const p2 = fetch('/products/chair')
+const p3 = fetch('/products/table')
+const p = Promise
+  .all([p1, p2, p3])
+  .catch(reason => console.log(reason))  // <- 'failed'
+
+//Promise.race
+Promise
+  .race([
+    new Promise(resolve => setTimeout(() => resolve(1), 1000)),
+    new Promise(resolve => setTimeout(() => resolve(2), 2000))
+  ])
+  .then(result => console.log(result))
+  // <- 1
+
+  function timeout (delay) {
+  return new Promise(function (resolve, reject) {
+    setTimeout(() => reject('timeout'), delay)
+  })
+}
+Promise
+  .race([
+    fetch('/large-resource-download'),
+    timeout(5000)
+  ])
+  .then(res => console.log(res))
+  .catch(err => console.log(err))
+
+
+//============================================================
+//5.2 Iterator Protocol and Iterable Protocol(es6包括两种协议：迭代器和可迭代协议)
+
+//5.2.1 Understanding Iteration Principles
+//Symbol.iterator
+const sequence = [...iterable]
+//
+const example = {}
+example[Symbol.iterator] = fn
+//
+const example = {
+  [Symbol.iterator]: fn
+}
+//next方法：包含两个属性 value(当前项)，done（序列末尾）
+const sequence = {
+  [Symbol.iterator]() {
+    const items = ['i', 't', 'e', 'r', 'a', 'b', 'l', 'e']
+    return {
+      next: () => ({
+        done: items.length === 0,
+        value: items.shift()
+      })
+    }
+  }
+}
+//for..of
+for (let item of sequence) {
+  console.log(item)
+  // <- 'i'
+  // <- 't'
+  // <- 'e'
+  // <- 'r'
+  // <- 'a'
+  // <- 'b'
+  // <- 'l'
+  // <- 'e'
+}
+//Array.from
+console.log([...sequence])// <- ['i', 't', 'e', 'r', 'a', 'b', 'l', 'e']
+console.log(Array.from(sequence))// <- ['i', 't', 'e', 'r', 'a', 'b', 'l', 'e']
+console.log(Array.from({ 0: 'a', 1: 'b', 2: 'c', length: 3 }))// <- ['a', 'b', 'c']
+//
+for (let element of $('li')) {
+  console.log(element)
+  // <- a <li> in the jQuery collection
+}
+
+//5.2.2 Infinite Sequences(无穷序列)
+const random = {
+  [Symbol.iterator]: () => ({
+    next: () => ({ value: Math.random() })
+  })
+}//没有done属性，无线序列，浏览器会崩溃
+//但可如下使用
+const random = {
+  [Symbol.iterator]: () => ({
+    next: () => ({ value: Math.random() })
+  })
+}
+const [one, another] = random
+console.log(one)// <- 0.23235511826351285（随机）
+console.log(another)// <- 0.28749457537196577
+//value大于0.8时停止
+for (let value of random) {
+  if (value > 0.8) {
+    break
+  }
+  console.log(value)
+}
+//新方法获取序列的前指定项
+function take (sequence, amount) {
+  return {
+    [Symbol.iterator]() {
+      const iterator = sequence[Symbol.iterator]()
+      return {
+        next() {
+          if (amount-- < 1) {
+            return { done: true }
+          }
+          return iterator.next()
+        }
+      }
+    }
+  }
+}
+const s=[...take(random,3)]
+console.log(s)//0.7651307189696908,0.8546704182435212,0.5671082545911172(随机)
+
+//返回第一个不在范围内的值前面的所有值
+function range (sequence, low=0, high=1) {
+  return {
+    [Symbol.iterator]() {
+      const iterator = sequence[Symbol.iterator]()
+      return {
+        next() {
+          const item = iterator.next()
+          if (item.value < low || item.value > high) {
+            return { done: true }
+          }
+          return item
+        }
+      }
+    }
+  }
+}
+//警告：迭代器没有办法识别序列是否是无穷序列
+
+//5.2.3 Iterating Object Maps as Key-Value Pairs(遍历)
+const colors = {
+  green: '#0e0',
+  orange: '#f50',
+  pink: '#e07',
+  [Symbol.iterator] () {
+    const keys = Object.keys(colors)
+    return {
+      next () {
+        const done = keys.length === 0
+        const key = keys.shift()
+        return {
+          done,
+          value: [key, colors[key]]
+        }
+      }
+    }
+  }
+}
+console.log([...colors])// <- [['green', '#0e0'], ['orange', '#f50'], ['pink', '#e07']]
+//使可重用
+function keyValueIterable (target) {
+  target[Symbol.iterator] = function () {
+    const keys = Object.keys(target)
+    return {
+      next () {
+        const done = keys.length === 0
+        const key = keys.shift()
+        return {
+          done,
+          value: [key, target[key]]
+        }
+      }
+    }
+  }
+  return target
+}
+const colors = keyValueIterable({
+  green: '#0e0',
+  orange: '#f50',
+  pink: '#e07'
+})
+for (let [, color] of colors) {
+  console.log(color)
+  // <- '#0e0'
+  // <- '#f50'
+  // <- '#e07'
+}
+
+//5.2.4 Building Versatility Into Iterating a Playlist
+const songs = [
+  `Bad moon rising – Creedence`,
+  `Don't stop me now – Queen`,
+  `The Scientist – Coldplay`,
+  `Somewhere only we know – Keane`
+]
+
+function playlist (songs, repeat) {
+  return {
+    [Symbol.iterator] () {
+      let copy = []
+      return {
+        next () {
+          if (copy.length === 0) {
+            if (repeat < 1) {
+              return { done: true }
+            }
+            copy = songs.slice()
+            repeat--
+          }
+          return {
+            value: copy.shift(), done: false
+          }
+        }
+      }
+    }
+  }
+}
+console.log([...playlist(['a', 'b'], 3)])// <- ['a', 'b', 'a', 'b', 'a', 'b']
+
+function player (sequence) {
+  const g = sequence()
+  more()
+  function more () {
+    const item = g.next()
+    if (item.done) {
+      return
+    }
+    playSong(item.value, more)
+  }
+}
+const sequence = playlist(songs, Infinity)
+player(sequence)
+//随机播放or顺序播放
+function playlist (songs, repeat, shuffle) {
+  return {
+    [Symbol.iterator] () {
+      let copy = []
+      return {
+        next () {
+          if (copy.length === 0) {
+            if (repeat < 1) {
+              return { done: true }
+            }
+            copy = songs.slice()
+            repeat--
+          }
+          const value = shuffle ? randomSong() : nextSong()
+          return { done: false, value }
+        }
+      }
+      function randomSong () {
+        const index = Math.floor(Math.random() * copy.length)
+        return copy.splice(index, 1)[0]
+      }
+      function nextSong () {
+        return copy.shift()
+      }
+    }
+  }
+}
+console.log([...playlist(['a', 'b'], 3, true)])// <- ['a', 'b', 'b', 'a', 'a', 'b']
+
+
+//====================================================
+//5.3 Generator Functions and Generator Objects
+//*用于标记Generator，yield增加一个value进序列
+function* abc () {
+  yield 'a'
+  yield 'b'
+  yield 'c'
+}
+const chars = abc()
+typeof chars[Symbol.iterator] === 'function'
+typeof chars.next === 'function'
+chars[Symbol.iterator]() === chars
+console.log(Array.from(chars))// <- ['a', 'b', 'c']
+console.log([...chars])// <- ['a', 'b', 'c']
+
+function* numbers () {
+  yield 1
+  console.log('a')
+  yield 2
+  console.log('b')
+  yield 3
+  console.log('c')
+}
+console.log([...numbers()])
+// <- 'a'
+// <- 'b'
+// <- 'c'
+// <- [1, 2, 3]
+for (let number of numbers()) {
+  console.log(number)
+  // <- 1
+  // <- 'a'
+  // <- 2
+  // <- 'b'
+  // <- 3
+  // <- 'c'
+}
+//yeild*
+function* salute () {
+  yield* 'hello'
+}
+console.log([...salute()])// <- ['h', 'e', 'l', 'l', 'o']
+
+function* salute (name) {
+  yield* 'hello '
+  yield* name
+}
+console.log([...salute('you')])// <- ['h', 'e', 'l', 'l', 'o', ' ', 'y', 'o', 'u']
+
+const salute = {
+  [Symbol.iterator]() {
+    const items = ['h', 'e', 'l', 'l', 'o']
+    return {
+      next: () => ({
+        done: items.length === 0,
+        value: items.shift()
+      })
+    }
+  }
+}
+function* multiplied (base, multiplier) {
+  yield base + 1 * multiplier
+  yield base + 2 * multiplier
+}
+function* trailmix () {
+  yield* salute
+  yield 0
+  yield* [1, 2]
+  yield* [...multiplied(3, 2)]
+  yield [...multiplied(6, 3)]
+  yield* multiplied(15, 5)
+}
+console.log([...trailmix()])//['h', 'e', 'l', 'l', 'o', 0, 1, 2, 5, 7, [9, 12], 20, 25]
+
+//5.3.2 Iterating over Generators by Hand
+function* numbers () {
+  yield 1
+  console.log('a')
+  yield 2
+  console.log('b')
+  yield 3
+  console.log('c')
+}
+const g = numbers()
+while (true) {
+  let item = g.next()
+  if (item.done) {
+    break
+  }
+  console.log(item.value)
+}//1,a,2,b,3,c
+
+function* generator () {
+  yield 'only'
+}
+const g = generator()
+console.log(g.next())// <- { done: false, value: 'only' }
+console.log(g.next())// <- { done: true }
+console.log(g.next())// <- { done: true }
+
+
+//5.3.3 Coding A Magic 8-ball Generator
+const answers = [
+  `It is certain`,
+  `Yes definitely`,
+  `Most likely`,
+  `Yes`,
+  `Ask again later`,
+  `Better not tell you now`,
+  `Cannot predict now`,
+  `Don't count on it`,
+  `My sources say no`,
+  `Very doubtful`
+]
+function answer () {
+  return answers[Math.floor(Math.random() * answers.length)]
+}
+function* ball () {
+  while (true) {
+    yield `[a] ${ answer() }`
+  }
+}
+const g = ball()
+g.next()// <- { value: '[a] Better not tell you now', done: false }
+g.next()// <- { value: '[a] Most likely', done: false }
+
+//*
+function* ball () {
+  let question
+  while (true) {
+    question = yield `[a] ${ answer() }`
+    console.log(`[q] ${ question }`)
+  }
+}
+const g = ball()
+g.next()
+console.log(g.next('Will JavaScript fall out of grace?').value)
+// <- '[q] Will JavaScript fall out of grace?'
+// <- '[a] My sources say no'
+console.log(g.next('How do you know that?').value)
+// <- '[q] How do you know that?'
+// <- '[a] Concentrate and ask again'
+
+
+//5.3.4 Consuming Generator Functions for Flexibility
+ball(function* questions () {
+  yield 'Will JavaScript fall out of grace?'
+  yield 'How do you know that?'
+})
+// <- '[q] Will JavaScript fall out of grace?'
+// <- '[a] Yes'
+// <- '[q] How do you know that?'
+// <- '[a] It is certain'
+
+function ball (questions) {
+  for (let question of questions()) {
+    console.log(`[q] ${ question }`)
+    console.log(`[a] ${ answer() }`)
+  }
+}
+const g=ball(function* questions () {
+  yield 'Will JavaScript fall out of grace?'
+  yield 'How do you know that?'
+})
+console.log(g.next())
+/*[q] Will JavaScript fall out of grace?
+[a] Don't count on it
+[q] How do you know that?
+[a] Don't count on it*/
+
+function* ball (questions) {
+  for (let question of questions()) {
+    yield [
+      `[q] ${ question }`,
+      `[a] ${ answer() }`
+    ]
+  }
+}
+function* questions () {
+  yield 'Will JavaScript fall out of grace?'
+  yield 'How do you know that?'
+}
+for (let [q,a] of ball(questions)) {
+  console.log(q)
+  console.log(a)
+}
+/*[q] Will JavaScript fall out of grace?
+[a] It is certain
+[q] How do you know that?
+[a] Don't count on it
+*/
+
+//5.3.5 Dealing with asynchronous flows
+function ball (questions) {
+  const g = questions()
+  ask()
+  function ask () {
+    const question = g.next()
+    if (question.done) {
+      return
+    }
+    fetch(`/ask?q=${ encodeURIComponent(question.value) }`)
+      .then(response => response.text())
+      .then(answer => {
+        console.log(`[q] ${ question.value }`)
+        console.log(`[a] ${ answer }`)
+        ask()
+      })
+  }
+}
+ball(function* questions () {
+  yield 'Will JavaScript fall out of grace?'
+  yield 'How do you know that?'
+})
+//g.next(value)
+function ball (questions) {
+  const g = questions()
+  let question = g.next()
+  ask()
+  function ask () {
+    if (question.done) {
+      return
+    }
+    fetch(`/ask?q=${ encodeURIComponent(question.value) }`)
+      .then(response => response.text())
+      .then(answer => question = g.next(answer))
+      .then(ask)
+  }
+}
+ball(function* questions () {
+  console.log(`[a-1] ${ yield 'Will JavaScript fall out of grace?' }`)
+  console.log(`[a-2] ${ yield 'How do you know that?' }`)
+})
+
+
+//5.3.6 Throwing Errors at a Generator
+
+//response.text()发生错误则抛出错误
+fetch(`/ask?q=${ encodeURIComponent(question.value) }`)
+  .then(response => response.text())
+  .then(answer => question = g.next(answer), reason => g.throw(reason))
+  .then(ask)
+
+  ball(function* questions () {
+    try {
+      console.log(`[a-1] ${ yield 'Will JavaScript fall out of grace?' }`)
+    } catch (e) {
+      console.error('[a-1] Oops!', e)
+    }
+    try {
+      console.log(`[a-2] ${ yield 'How do you know that?' }`)
+    } catch (e) {
+      console.error('[a-2] Oops!', e)
+    }
+  })
+
+//5.3.7 Returning on Behalf of a Generator
+//.return()终止序列迭代
+function* numbers () {
+  yield 1
+  yield 2
+  yield 3
+}
+const g = numbers()
+console.log(g.next())// <- { done: false, value: 1 }
+console.log(g.return())// <- { done: true }
+console.log(g.next())// <- { done: true }
+//try/finally将会避免立即终止迭代
+function* numbers () {
+  try {
+    yield 1
+  } finally {
+    yield 2
+    yield 3
+  }
+  yield 4
+  yield 5
+}
+const g = numbers()
+console.log(g.next())// <- { done: false, value: 1 }
+console.log(g.return(-1))// <- { done: false, value: 2 }
+console.log(g.next())// <- { done: false, value: 3 }
+console.log(g.next())// <- { done: true, value: -1 }
+console.log(g.next())// <- { done: true, value：undefined }
+//return num 及之后的yeild:不能通过array.from或for..of访问.只能通过.next访问
+function* numbers () {
+  yield 1
+  yield 2
+  return 3
+  yield 4
+}
+console.log([...numbers()])// <- [1, 2]
+console.log(Array.from(numbers()))// <- [1, 2]
+for (let number of numbers()) {
+  console.log(number)  // <- 1  // <- 2
+}
+
+const g = numbers()
+console.log(g.next())// <- { done: false, value: 1 }
+console.log(g.next())// <- { done: false, value: 2 }
+console.log(g.next())// <- { done: true, value: 3 }
+console.log(g.next())// <- { done: true }
+
+
+//5.3.8 Asynchronous I/O Using Generators
+saveProducts(function* () {
+  yield '/products/javascript-application-design'
+  yield '/products/modular-es6'
+  return '/wishlists/books'
+})
+//
+saveProducts(function* () {
+  const p1 = yield '/products/javascript-application-design'
+  const p2 = yield '/products/modular-es6'
+  return '/wishlists/books'
+}).then(response => {
+  // continue after storing the product list
+})
+//
+saveProducts(function* () {
+  yield '/products/javascript-application-design'
+  yield '/products/modular-es6'
+  if (addToCart) {
+    return '/cart'
+  }
+  return '/wishlists/books'
+})
+//合并fetch和API
+function saveProducts (productList) {
+  const g = productList()
+  const item = g.next()
+  fetch(item.value)
+    .then(res => res.json())
+    .then(product => {})
+}
+//
+function saveProducts (productList) {
+  const g = productList()
+  more(g.next())
+  function more (item) {
+    if (item.done) {
+      return
+    }
+    fetch(item.value)
+      .then(res => res.json())
+      .then(product => {
+        more(g.next(product))
+      })
+  }
+}
+//
+function saveProducts (productList) {
+  const products = []
+  const g = productList()
+  more(g.next())
+  function more (item) {
+    if (item.done) {
+      save(item.value)
+    } else {
+      details(item.value)
+    }
+  }
+  function details (endpoint) {
+    fetch(endpoint)
+      .then(res => res.json())
+      .then(product => {
+        products.push(product)
+        more(g.next(product))
+      })
+  }
+  function save (endpoint) {
+    fetch(endpoint, {
+      method: 'POST',
+      body: JSON.stringify({ products })
+    })
+  }
+}
+//s
+function saveProducts (productList) {
+  const products = []
+  const g = productList()
+  return more(g.next())
+  function more (item) {
+    if (item.done) {
+      return save(item.value)
+    }
+    return details(item.value)
+  }
+  function details (endpoint) {
+    return fetch(endpoint)
+      .then(res => res.json())
+      .then(product => {
+        products.push(product)
+        return more(g.next(product))
+      })
+  }
+  function save (endpoint) {
+    return fetch(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({ products })
+      })
+      .then(res => res.json())
+  }
+}
+
+//==========================================
+//===========5.4 Async Functions============
+
+//5.4.1 Flavors of Async Code
+function getRandomArticle () {
+  return fetch('/articles/random', {
+    headers: new Headers({
+      Accept: 'application/json'
+    })
+  })
+  .then(res => res.json())
+}
+//链式响应很难捕捉到错误，
+getRandomArticle()
+  .then(model => renderView(model))
+  .then(html => setPageContents(html))
+  .then(() => console.log('Successfully changed page!'))
+  .catch(reason => console.error(reason));
+//回调函数 代码重复，难以阅读
+getRandomArticle((err, model) => {
+  if (err) {
+    return console.error(reason)
+  }
+  renderView(model, (err, html) => {
+    if (err) {
+      return console.error(reason)
+    }
+    setPageContents(html, err => {
+      if (err) {
+        return console.error(reason)
+      }
+      console.log('Successfully changed page!')
+    })
+  })
+})
+//异步函数，利用.waterfall()方法，(较好的选择)
+async.waterfall([
+  getRandomArticle,
+  renderView,
+  setPageContents
+], (err, html) => {
+  if (err) {
+    return console.error(reason)
+  }
+  console.log('Successfully changed page!')
+})
+//-----
+function getRandomArticle (gen) {
+  const g = gen();
+  fetch('/articles/random', {
+    headers: new Headers({
+      Accept: 'application/json'
+    })
+  })
+  .then(res => res.json())
+  .then(json => g.next(json))
+  .catch(error => g.throw(error))
+}
+//使用generators重写getRandomArticle
+getRandomArticle(function* printRandomArticle () {
+  const json = yield;
+  // render view
+});
+//通过yeild获取json
+getRandomArticle(function* printRandomArticle () {
+  const json = yield;
+  // render view
+});
+
+//5.4.2 Using async / await
+getRandomArticle()
+  .then(model => renderView(model))
+  .then(html => setPageContents(html))
+  .then(() => console.log('Successfully changed page!'))
+  .catch(reason => console.error(reason));
+async function read () {
+  try {
+    const model = await getRandomArticle()
+    const html = await renderView(model)
+    await setPageContents(html)
+    console.log('Successfully changed page!')
+  } catch (err) {
+    console.error(err)
+  }
+}
+read()
+//combined:异常时抛出错误，否则返回响应value
+async function read () {
+  const model = await getRandomArticle()
+  const html = await renderView(model)
+  await setPageContents(html)
+  return 'Successfully changed page!'
+}
+
+read()
+  .then(message => console.log(message))
+  .catch(err => console.error(err))
+//增加read函数的重用性
+async function read () {
+  const model = await getRandomArticle()
+  const html = await renderView(model)
+  return html
+}
+read().then(html => console.log(html))//打印html
+//写 功能
+async function write () {
+  const html = await read()
+  console.log(html)
+}
+
+//5.4.3 Concurrent Async Flows
+async function concurrent () {
+  const p1 = new Promise(resolve => setTimeout(resolve, 500, 'fast'))
+  const p2 = new Promise(resolve => setTimeout(resolve, 200, 'faster'))
+  const p3 = new Promise(resolve => setTimeout(resolve, 100, 'fastest'))
+  const r1 = await p1 // execution is blocked until p1 settles
+  const r2 = await p2
+  const r3 = await p3
+}
+//promise.all()同步执行异步流
+async function concurrent () {
+  const p1 = new Promise(resolve => setTimeout(resolve, 500, 'fast'))
+  const p2 = new Promise(resolve => setTimeout(resolve, 200, 'faster'))
+  const p3 = new Promise(resolve => setTimeout(resolve, 100, 'fastest'))
+  const [r1, r2, r3] = await Promise.all([p1, p2, p3])
+  console.log(r1, r2, r3)
+  // 'fast', 'faster', 'fastest'
+}
+//Promise.race更快
+async function race () {
+  const p1 = new Promise(resolve => setTimeout(resolve, 500, 'fast'))
+  const p2 = new Promise(resolve => setTimeout(resolve, 200, 'faster'))
+  const p3 = new Promise(resolve => setTimeout(resolve, 100, 'fastest'))
+  const result = await Promise.race([p1, p2, p3])
+  console.log(result)  // 'fastest'
+}
+
+
+//5.4.4 Error Handling
+read()
+  .then(html => console.log(html))
+  .catch(err => console.error(err))
+
+//5.4.6 Understanding Async Function Internals
+//首先假设如下异步函数
+async function example (a, b, c) {
+  // example function body
+}
+//转换成简单的函数声明，返回generator函数的结果
+function example (a, b, c) {
+  return spawn(function* () {
+    // example function body
+  })
+}
+function spawn (generator) {
+  // wrap everything in a promise
+  return new Promise((resolve, reject) => {
+    const g = generator()
+
+    // run the first step
+    step(() => g.next())
+
+    function step (nextFn) {
+      const next = runNext(nextFn)
+      if (next.done) {
+        // finished with success, resolve the promise
+        resolve(next.value)
+        return
+      }
+      // not finished, chain off the yielded promise and run next step
+      Promise
+        .resolve(next.value)
+        .then(
+          value => step(() => g.next(value)),
+          err => step(() => g.throw(err))
+        )
+    }
+
+    function runNext (nextFn) {
+      try {
+        // resume the generator
+        return nextFn()
+      } catch (err) {
+        // finished with failure, reject the promise
+        reject(err)
+      }
+    }
+  })
+}
+
+//-----------
+async function exercise () {
+  const r1 = await new Promise(resolve => setTimeout(resolve, 500, 'slowest'))
+  const r2 = await new Promise(resolve => setTimeout(resolve, 200, 'slow'))
+  return [r1, r2]
+}
+
+exercise().then(result => console.log(result))// <- ['slowest', 'slow']
+
+//first:return spawn
+function exercise () {
+  return spawn(function* () {
+    const r1 = yield new Promise(resolve => setTimeout(resolve, 500, 'slowest'))
+    const r2 = yield new Promise(resolve => setTimeout(resolve, 200, 'slow'))
+    return [r1, r2]
+  })
+}
+
+exercise().then(result => console.log(result))
+//then
+function spawn (generator) {
+  // wrap everything in a promise
+  return new Promise((resolve, reject) => {
+    const g = generator()
+
+    // run the first step
+    step(() => g.next())
+    // ...
+  })
+}
+function step (nextFn) {
+  const next = runNext(nextFn)
+  if (next.done) {
+    // finished with success, resolve the promise
+    resolve(next.value)
+    return
+  }
+  // not finished, chain off the yielded promise and run next step
+  Promise
+    .resolve(next.value)
+    .then(
+      value => step(() => g.next(value)),
+      err => step(() => g.throw(err))
+    )
+}
+
+function runNext (nextFn) {
+  try {
+    // resume the generator
+    return nextFn()
+  } catch (err) {
+    // finished with failure, reject the promise
+    reject(err)
+  }
+}
+
+//=========================================
+//========5.5 Asynchronous Iteration=======
+//Symbol.asyncIterator
+const sequence = {
+  [Symbol.asyncIterator]() {
+    const items = ['i', 't', 'e', 'r', 'a', 'b', 'l', 'e']
+    return {
+      next: () => Promise.resolve({
+        done: items.length === 0,
+        value: items.shift()
+      })
+    }
+  }
+}
+//无穷序列
+const interval = duration => ({
+  [Symbol.asyncIterator]: () => ({
+    i: 0,
+    next () {
+      return new Promise(resolve =>
+        setTimeout(() => resolve({
+          value: this.i++,
+          done: false
+        }), duration)
+      )
+    }
+  })
+})
+//for await..of
+async function print () {
+  for await (const i of interval(1000)) {
+    console.log(`${i} seconds ellapsed.`)
+  }
+}
+print()
+
+//5.5.2 Async Generators
+async function* fetchInterval(duration, ...params) {
+  for await (const i of interval(duration)) {
+    yield await fetch(...params)
+  }
+}
+//
+async function process () {
+  for await (const response of fetchInterval(1000, '/api/status')) {
+    const data = await response.json()
+    // use updated data
+  }
+}
+process()
