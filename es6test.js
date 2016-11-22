@@ -2697,3 +2697,546 @@ canExtend.delete(target)
 Object.preventExtensions(proxy)
 console.log(Object.isExtensible(proxy))
 // <- false
+
+
+
+//====================================================
+//=======Chapter 8:Built-in Improvements in ES6=======
+//====================================================
+
+//8.1 Numbers
+
+//8.1.1 Binary and Octal Literals
+//二进制；parseInt,0b
+parseInt(`101`, 2)// <- 5
+console.log(0b000); // <- 0
+console.log(0b001); // <- 1
+console.log(0b010); // <- 2
+console.log(parseInt(`01`))// <- 1
+console.log(parseInt(`012`))// <- 10
+console.log(parseInt(`012`, 10))// <- 12
+//8进制:parseInt,0o
+console.log(parseInt(`100`, `8`))// <- 64
+console.log(0o001); // <- 1
+console.log(0o010); // <- 8
+console.log(0o100); // <- 64
+//16进制：0x
+console.log(parseInt(`0ff`,`16`)); // <- 255
+console.log(0x0ff); // <- 255
+console.log(0xf00); // <- 3840
+
+//8.1.2 Number.isNaN(是否是NaN)
+//NaN（not a number）,非数字类型在算术运算或数据类型转换出错时是NaN
+console.log(Number.isNaN(123))// <- false, integers are not NaN
+console.log(Number.isNaN(Infinity))// <- false, Infinity is not NaN
+console.log(Number.isNaN(`a hundred`))// <- false, `a hundred` is not NaN
+console.log(Number.isNaN(NaN))// <- true, NaN is NaN
+console.log(Number.isNaN(`a hundred` / `two`))// <- true, `a hundred` / `two` is NaN, NaN is NaN
+//全局isNaN先将参数转换成Number型在判断是否是NaN
+isNaN(`a hundred`)// <- true, because Number(`a hundred`) is NaN
+isNaN(new Date())// <- false, because Number(new Date()) uses Date#valueOf, which returns a unix timestamp
+//数字判断
+function isNumber (value) {
+  return typeof value === `number` && !Number.isNaN(value)
+}
+isNumber(1)// <- true
+isNumber(Infinity)// <- true
+isNumber(NaN)// <- false
+isNumber(`two`)// <- false
+isNumber(new Date())// <- false
+
+//8.1.3 Number.isFinite
+//用于匹配是否是 infinity，-infinity，NaN,是则返回false
+//全局isFinite
+isFinite(NaN)// <- false
+isFinite(Infinity)// <- false
+isFinite(-Infinity)// <- false
+isFinite(null)// <- true, because Number(null) is 0
+isFinite(-13)// <- true, because Number(-13) is -13
+isFinite(`10`)// <- true, because Number(`10`) is 10
+//Number.isFinite
+Number.isFinite = value => typeof value === `number` && isFinite(value)
+Number.isFinite(NaN)// <- false
+Number.isFinite(Infinity)// <- false
+Number.isFinite(-Infinity)// <- false
+Number.isFinite(null)// <- false, because null is not a number
+Number.isFinite(-13)// <- true
+Number.isFinite(`10`)// <- false, because `10` is not a number
+
+//8.1.4 Number.parseInt
+//(同单独的parseInt)
+console.log(Number.parseInt === parseInt)// <- true
+//推断数应与前缀一致，可省略推断数
+parseInt(`0xf00`)// <- 3840
+parseInt(`0xf00`, 16)// <- 3840
+parseInt(`0xf00`, 10)// <- 0
+//没有解析0b(二进制)，0o(八进制)。去掉前缀，加上推断数即可。或者保留，使用slice
+parseInt(`0b011`)// <- 0
+parseInt(`0b011`, 2)// <- 0
+parseInt(`0o100`)// <- 0
+parseInt(`0o100`, 8)// <- 0
+
+parseInt(`011`, 2)//3
+parseInt(`100`, 8)//64
+
+parseInt(`0b011`.slice(2), 2)// <- 3
+parseInt(`0o110`.slice(2), 8)// <- 72
+//直接用Number
+Number(`0b011`)//3
+Number(`0o011`)//9
+Number(`0x011`)//17
+
+//8.1.5 Number.parseFloat
+console.log(Number.parseFloat === parseFloat)// <- true
+//Number.parseFloat更安全，不会混乱，而全局 parseFloat 要求完整性
+
+//8.1.6 Number.isInteger(是否为整数)
+console.log(Number.isInteger(Infinity)); // <- false
+console.log(Number.isInteger(-Infinity)); // <- false
+console.log(Number.isInteger(NaN)); // <- false
+console.log(Number.isInteger(null)); // <- false
+console.log(Number.isInteger(0)); // <- true
+console.log(Number.isInteger(-10)); // <- true
+console.log(Number.isInteger(10.3)); // <- false
+//不完全等于全局isInteger
+Number.isInteger = value => Number.isFinite(value) && value % 1 === 0
+
+//8.1.7 Number.EPSILON(是一个常量，类似 pi.)
+Number.EPSILON// <- 2.220446049250313e-16
+Number.EPSILON.toFixed(20)// <- `0.00000000000000022204`
+0.1 + 0.2// <- 0.30000000000000004
+0.1 + 0.2 === 0.3// <- false
+//用来判断一个数是否是足够小
+5.551115123125783e-17 < Number.EPSILON// <- true
+//判断是否在误差范围内
+function withinMarginOfError (left, right) {
+  return Math.abs(left - right) < Number.EPSILON
+}
+withinMarginOfError(0.1 + 0.2, 0.3)// <- true
+withinMarginOfError(0.2 + 0.2, 0.3)// <- false
+
+//8.1.8 Number.MAX_SAFE_INTEGER and Number.MIN_SAFE_INTEGER
+//最大整数，最小整数（最大整数取反）
+Number.MAX_SAFE_INTEGER === Math.pow(2, 53) - 1// <- true
+Number.MAX_SAFE_INTEGER === 9007199254740991// <- true
+Number.MIN_SAFE_INTEGER === -Number.MAX_SAFE_INTEGER// <- true
+Number.MIN_SAFE_INTEGER === -9007199254740991// <- true
+//超出最小最大范围的运算将不可靠
+1 === 2// <- false
+Number.MAX_SAFE_INTEGER + 1 === Number.MAX_SAFE_INTEGER + 2// <- true
+Number.MIN_SAFE_INTEGER - 1 === Number.MIN_SAFE_INTEGER - 2// <- true
+
+//8.1.10 Number.isSafeInteger(是否是可靠的整数)
+//在[ min_safe_integer任意整数，max_safe_integer ]范围,此方法返回true,没有强制数据类型转换，必须为整数
+Number.isSafeInteger(`one`); // <- false
+Number.isSafeInteger(`0`); // <- false
+Number.isSafeInteger(null); // <- false
+Number.isSafeInteger(NaN); // <- false
+Number.isSafeInteger(Infinity); // <- false
+Number.isSafeInteger(-Infinity); // <- false
+Number.isSafeInteger(Number.MIN_SAFE_INTEGER - 1); // <- false
+Number.isSafeInteger(Number.MIN_SAFE_INTEGER); // <- true
+Number.isSafeInteger(1); // <- true
+Number.isSafeInteger(1.2); // <- false
+Number.isSafeInteger(Number.MAX_SAFE_INTEGER); // <- true
+Number.isSafeInteger(Number.MAX_SAFE_INTEGER + 1); // <- false
+//每一个数都必须在范围内，而不是只要求运算结果在范围内
+Number.isSafeInteger(9007199254740992)// <- false
+Number.isSafeInteger(9007199254740995 - 9007199254740993)// <- true（wrong）
+//example
+function safeOp (result, ...operands) {
+  const values = [result, ...operands]
+  if (!values.every(Number.isSafeInteger)) {
+    throw new RangeError('Operation cannot be trusted!')
+  }
+  return result
+}
+safeOp(9007199254740000 + 993, 9007199254740000, 993)// <- RangeError: Operation cannot be trusted!
+safeOp(9007199254740993 + 990, 9007199254740993, 990)// <- RangeError: Operation cannot be trusted!
+safeOp(9007199254740993 - 990, 9007199254740993, 990)// <- RangeError: Operation cannot be trusted!
+safeOp(9007199254740993 - 9007199254740995, 9007199254740993, 9007199254740995)// <- RangeError: Operation cannot be trusted!
+safeOp(1 + 2, 1, 2)// <- 3
+
+//====================================
+//==========8.2 Math==================
+
+//8.2.1 Math.sign(返回-1 -0 0 1 NaN)
+Math.sign(1); // <- 1
+Math.sign(0); // <- 0
+Math.sign(-0); // <- -0
+Math.sign(-30); // <- -1
+Math.sign(NaN); // <- NaN
+Math.sign(`one`); // <- NaN, because Number(`one`) is NaN
+Math.sign(`0`); // <- 0, because Number(`0`) is 0
+Math.sign(`7`); // <- 1, because Number(`7`) is 7
+
+//8.2.2 Math.trunc(丢弃小数部分)
+Math.trunc(12.34567); // <- 12
+Math.trunc(-13.58); // <- -13
+Math.trunc(-0.1234); // <- -0
+Math.trunc(NaN); // <- NaN
+Math.trunc(`one`); // <- NaN, because Number(`one`) is NaN
+Math.trunc(`123.456`); // <- 123, because Number(`123.456`) is 123.456
+//等价于
+Math.trunc = value => value > 0 ? Math.floor(value) : Math.ceil(value)
+
+//8.2.3 Math.cbrt(开立方根)
+Math.cbrt(-1); // <- -1
+Math.cbrt(3); // <- 1.4422495703074083
+Math.cbrt(8); // <- 2
+Math.cbrt(27); // <- 3
+Math.cbrt(`8`); // <- 2, because Number(`8`) is 8
+Math.cbrt(`one`); // <- NaN, because Number(`one`) is NaN
+
+//8.2.4 Math.expm1(e的指数减1)（精度高）
+Math.expm1(1e-10)// <- 1.00000000005e-10
+
+//8.2.5 Math.log1p(等于log(value+1))
+Math.log1p(1.00000000005e-10)// <- 1e-10,
+
+//8.2.6 Math.log10(底为10)
+Math.log10(1000)// <- 3
+//等价于 Math.log(x) / Math.LN10
+function log10 (value) {
+  return Math.log(x) / Math.LN10
+}
+
+//8.2.7 Math.log2
+Math.log2(1024)// <- 10
+//等价于 Math.log(x) / Math.LN2
+function log2 (value) {
+  return Math.log(x) / Math.LN2
+}
+//<<按位左移（二进制）
+Math.log2(1 << 29)// <- 29
+
+//8.2.8 Trigonometric Functions(三角函数)
+//Math.sinh(value),Math.cosh(value),Math.tanh(value)，Math.asinh(value)，Math.acosh(value) ，Math.atanh(value)
+
+//8.2.9 Math.hypot(平方根)
+Math.hypot(1, 2, 3)// <- 3.741657386773941, the square root of (1*1 + 2*2 + 3*3)
+
+//8.2.10 Bitwise Computation Helpers(按位计算)
+//Math.clz32 ( 转换为32进制，返回前面0的个数 )
+Math.clz32(0); // <- 32
+Math.clz32(1); // <- 31
+Math.clz32(1 << 1); // <- 30
+Math.clz32(1 << 2); // <- 29
+Math.clz32(1 << 29); // <- 2
+Math.clz32(1 << 31); // <- 0
+//Math.imul：该函数返回两个参数的类C的32位整数乘法运算的运算结果.
+//Math.fround：可以将任意的数字转换为离它最近的单精度浮点数形式的数字。
+
+//==============================
+//=====8.3 Strings and Unicode==
+
+//8.3.1 String#startsWith（匹配indexOf为0）
+`hello gary`.indexOf(`gary`)// <- 6
+`hello gary`.indexOf(`hello`)// <- 0
+`hello gary`.indexOf(`stephan`)// <- -1
+
+`hello gary`.indexOf(`gary`) === 0// <- false
+`hello gary`.indexOf(`hello`) === 0// <- true
+`hello gary`.indexOf(`stephan`) === 0// <- false
+
+`hello gary`.startsWith(`gary`)// <- false
+`hello gary`.startsWith(`hello`)// <- true
+`hello gary`.startsWith(`stephan`)// <- false
+
+`hello ell`.indexOf(`ell`) === 6// <- false, because the result was 1
+
+`hello ell`.indexOf(`ell`, 5) === 6// <- true(从第5位开始)
+`hello ell`.startsWith(`ell`, 5)// <- true
+
+//8.3.2 String#endsWith
+`hello gary`.endsWith(`gary`)// <- true
+`hello gary`.endsWith(`hello`)// <- false
+//数字表示截取字符串的长度
+`hello gary`.endsWith(`gary`, 10)// <- true
+`hello gary`.endsWith(`gary`, 9)// <- false, it ends with `gar` in this case
+
+//8.3.3 String#includes
+`hello gary`.includes(`hell`)// <- true
+`hello gary`.includes(`ga`)// <- true
+`hello gary`.includes(`rye`)// <- false
+//数字：start
+`hello gary`.includes(`ga`, 4)// <- true
+`hello gary`.includes(`ga`, 7)// <- false
+
+//8.3.4 String#repeat
+`ha`.repeat(1)// <- `ha`
+`ha`.repeat(2)// <- `haha`
+`ha`.repeat(5)// <- `hahahahaha`
+`ha`.repeat(0)// <-
+//(数字的话必须是有限的正数)
+`ha`.repeat(Infinity)// <- RangeError
+`ha`.repeat(-1)// <- RangeError
+//向上取整
+`ha`.repeat(3.9)// <- `hahaha`, count was floored to 3
+//NaN当0
+`ha`.repeat(NaN)// <- ``
+//参数必须是数字
+`ha`.repeat(`ha`)// <- ``, because Number(`ha`) is NaN
+`ha`.repeat(`3`)// <- `hahaha`, because Number(`3`) is 3
+//(-1,0)范围内的数转-0
+`na`.repeat(-0.1)// <- ``, because count was rounded to -0
+`na`.repeat(-0.9)// <- ``, because count was rounded to -0
+`na`.repeat(-0.9999)// <- ``, because count was rounded to -0
+`na`.repeat(-1)// <- Uncaught RangeError: Invalid count value
+//examplefunction leftPad (text, spaces = 2) {
+  return text
+    .split(`\n`)
+    .map(line => ` `.repeat(spaces) + line)
+    .join(`\n`)
+}
+
+console.log(leftPad(`a
+b
+c`, 4))
+// <-     a
+// <-     b
+// <-     c
+
+//8.3.5 Unicode
+const text = '🐎👱❤'
+for (let i = 0; i < text.length; i++) {
+  console.log(text[i])
+  // <- '\ud83d'
+  // <- '\udc0e'
+  // <- '\ud83d'
+  // <- '\udc71'
+  // <- '\u2764'
+}
+
+//8.3.6 String.prototype[Symbol.iterator]
+//代码单元
+for (let codePoint of `🐎👱❤`) {
+  console.log(codePoint)
+  // <- '🐎'
+  // <- '👱'
+  // <- '❤'
+}
+const text = '🐎👱❤'
+console.log(text.length)//5
+console.log([...text].length)//3
+//上划线
+function overlined (text) {
+  return `${ text }\u0305`
+}
+overlined(`o`)// <- `o̅`
+`hello world`.split(``).map(overlined).join(``)// <- `h̅e̅l̅l̅o̅ ̅w̅o̅r̅l̅d̅`
+//
+`o̅`.length// <- 2
+[...`o̅`].length// <- 2, should be 1
+[...`h̅e̅l̅l̅o̅ ̅w̅o̅r̅l̅d̅`].length// <- 22, should be 11
+[...`h̅e̅l̅l̅o̅ world`].length// <- 16, should be 11
+
+//8.3.7 String#codePointAt(返回指定索引(代码单元而非代码点)处的字符)
+const text = `\ud83d\udc0e\ud83d\udc71\u2764`
+text.codePointAt(0)// <- 128014
+text.codePointAt(2)// <- 128113
+text.codePointAt(4)// <- 10084
+//
+const text = `\ud83d\udc0e\ud83d\udc71\u2764`
+for (let codePoint of text) {
+  console.log(codePoint.codePointAt(0))
+  // <- 128014
+  // <- 128113
+  // <- 10084
+}
+//
+const text = `\ud83d\udc0e\ud83d\udc71\u2764`
+[...text].map(cp => cp.codePointAt(0))// <- [128014, 128113, 10084]
+
+const text = `\ud83d\udc0e\ud83d\udc71\u2764`
+[...text].map(cp => cp.codePointAt(0).toString(16))// <- [`1f40e`, `1f471`, `2764`]
+//\u{codePoint}
+`\u{1f40e}`// <- `🐎`
+`\u{1f471}`// <- `👱`
+`\u{2764}`// <- `❤`
+
+//8.3.8 String.fromCodePoint
+//返回代码点
+//16进制
+String.fromCodePoint(0x1f40e)// <- `🐎`
+String.fromCodePoint(0x1f471)// <- `👱`
+String.fromCodePoint(0x2764)// <- `❤`
+//10进制
+String.fromCodePoint(128014)// <- `🐎`
+String.fromCodePoint(128113)// <- `👱`
+String.fromCodePoint(10084)// <- `❤`
+//
+String.fromCodePoint(128014, 128113, 10084)// <- '🐎👱❤'
+
+//8.3.9 Unicode-Aware String Reversal
+const text = `\ud83d\udc0e\ud83d\udc71\u2764`
+text.split(``).map(cp => cp.codePointAt(0))// <- [55357, 56334, 55357, 56433, 10084]
+text.split(``).reverse().map(cp => cp.codePointAt(0))// <- [10084, 56433, 128014, 55357]
+
+const text = `\ud83d\udc0e\ud83d\udc71\u2764`
+[...text].reverse().join(``)// <- '❤👱🐎'
+
+//8.3.10 String#normalize
+`mañana` === `mañana`// <- false
+[...`mañana`].map(cp => cp.codePointAt(0).toString(16))// <- [`6d`, `61`, `f1`, `61`, `6e`, `61`]
+[...`mañana`].map(cp => cp.codePointAt(0).toString(16))// <- [`6d`, `61`, `6e`, `303`, `61`, `6e`, `61`]
+[...`mañana`].length// <- 6
+[...`mañana`].length// <- 7
+//标准化
+const normalized = `mañana`.normalize()
+[...normalized].map(cp => cp.codePointAt(0).toString(16))// <- [`6d`, `61`, `f1`, `61`, `6e`, `61`]
+normalized.length// <- 6
+//标准化改进比较函数
+function compare (left, right) {
+  return left.normalize() === right.normalize()
+}
+const normal = `mañana`
+const irregular = `mañana`
+normal === irregular// <- false
+compare(normal, irregular)// <- true
+
+//==============================================
+//-===================8.4 Array=================
+
+//8.4.1 Array.from
+//从
+function cast () {
+  return Array.prototype.slice.call(arguments)
+}
+cast(`a`, `b`)// <- [`a`, `b`]
+//到
+function cast () {
+  return [...arguments]
+}
+cast(`a`, `b`)// <- [`a`, `b`]
+//到
+function cast (...params) {
+  return params
+}
+cast(`a`, `b`)// <- [`a`, `b`]
+//DOM
+[...document.querySelectorAll(`div`)]// <- [<div>, <div>, <div>, ...]
+[...$(`div`)]// <- [<div>, <div>, <div>, ...]
+//Array.from(类似于...)
+Array.from($(`div`))// <- [<div>, <div>, <div>, ...]
+//获取第一个结点之后的所有结点
+[].slice.call(document.querySelectorAll(`div`), 1)
+//or
+Array.from(document.querySelectorAll(`div`)).slice(1)
+//Array.from实际上有三个参数：input ，map ，context ，只有input是需要的
+function typesOf () {
+  return Array.from(arguments, value => typeof value)
+}
+typesOf(null, [], NaN)// <- [`object`, `object`, `number`]
+//map
+function typesOf (...all) {
+  return all.map(value => typeof value)
+}
+typesOf(null, [], NaN)// <- [`object`, `object`, `number`]
+
+const things = {
+  0: {
+    type: `fruit`,
+    name: `Apple`,
+    amount: 3
+  },
+  1: {
+    type: `vegetable`,
+    name: `Onion`,
+    amount: 1
+  },
+  length: 2
+}
+Array.from(things)// <- [object ,object]
+Array.from(things, thing => thing.type)// <- [`fruit`, `vegetable`]
+
+//8.4.2 Array.of
+//等价于
+Array.of = (...params) => params
+//新建
+new Array(); // <- []
+new Array(undefined); // <- [undefined]
+new Array(1); // <- [undefined x 1]
+new Array(3); // <- [undefined x 3]
+new Array(`3`); // <- [`3`]
+new Array(1, 2); // <- [1, 2]
+new Array(-1, -2); // <- [-1, -2]
+new Array(-1); // <- RangeError: Invalid array length
+//Array.of
+console.log(Array.of()); // <- []
+console.log(Array.of(undefined)); // <- [undefined]
+console.log(Array.of(1)); // <- [1]
+console.log(Array.of(3)); // <- [3]
+console.log(Array.of(`3`)); // <- [`3`]
+console.log(Array.of(1, 2)); // <- [1, 2]
+console.log(Array.of(-1, -2)); // <- [-1, -2]
+console.log(Array.of(-1)); // <- [-1]
+
+//8.4.3 Array#copyWithin
+// 用法（将 start（含） end(不含)位置之间的元素赋值粘贴在目标位置后面）
+Array.prototype.copyWithin(target, start = 0, end = this.length)
+const items = [1, 2, 3, ,,,,,,,]
+items.copyWithin(6, 1, 3)// <- [1, 2, 3, undefined × 3, 2, 3, undefined × 2]
+//等价于
+const items = [1, 2, 3, ,,,,,,,]
+const copy = items.slice(1, 3)// <- [2, 3]
+items.splice(6, 3 - 1, ...copy)
+console.log(items)// <- [1, 2, 3, undefined × 3, 2, 3, undefined × 2]
+//等价于
+function copyWithin (items, target, start = 0, end = items.length) {
+  const copy = items.slice(start, end)
+  const removed = end - start
+  items.splice(target, removed, ...copy)
+  return items
+}
+copyWithin([1, 2, 3, ,,,,,,,], 6, 1, 3)// <- [1, 2, 3, undefined × 3, 2, 3, undefined × 2]
+
+//8.4.4 Array#fill
+[`a`, `b`, `c`].fill(`x`); // <- [`x`, `x`, `x`](全部替换)
+new Array(3).fill(`x`); // <- [`x`, `x`, `x`]（全部填充）
+//指定起始、结束索引
+[`a`, `b`, `c`,,,].fill(`x`, 2)// <- [`a`, `b`, `x`, `x`, `x`]
+new Array(5).fill(`x`, `x`, 3)// <- [`x`, `x`, `x`, undefined x 2]（结束位置3）
+new Array(3).fill({})// <- [{}, {}, {}]
+//不可这样使用
+const map = i => i * 2
+new Array(3).fill(map)// <- [map, map, map]
+
+//8.4.5 Array#find and Array#findIndex
+//find :返回一个回调函数：遍历数组的每一个函数知道找到满足条件的item，返回该item,否则返回undefined
+[`a`, `b`, `c`, `d`, `e`].find(item => item === `c`)// <- `c`
+[`a`, `b`, `c`, `d`, `e`].find((item, i) => i === 0)// <- `a`
+[`a`, `b`, `c`, `d`, `e`].find(item => item === `z`)// <- undefined
+//findIndex:返回满足条件的item所在的位置索引，没有则返回-1
+[`a`, `b`, `c`, `d`, `e`].findIndex(item => item === `c`)// <- 2
+[`a`, `b`, `c`, `d`, `e`].findIndex((item, i) => i === 0)// <- 0
+[`a`, `b`, `c`, `d`, `e`].findIndex(item => item === `z`)// <- -1
+
+//8.4.6 Array#keys
+//返回一个迭代器包含一个序列key，可以使用for..of,.next()
+[`a`, `b`, `c`, `d`].keys()// <- ArrayIterator {}
+for (let key of [`a`,`b`,`c`,`d`].keys()) {
+  console.log(key)
+  // <- 1
+  // <- 2
+  // <- 3
+  // <- 4
+}
+Object.keys(new Array(4))// <- []
+[...new Array(4).keys()]// <- [0, 1, 2, 3]
+
+//8.4.7 Array#values
+//类似keys,返回的迭代器包含value序列而不是key
+[...[`a`, `b`, `c`, `d`].values()]// <- [`a`, `b`, `c`, `d`]
+
+//8.4.8 Array#entries
+//返回key-value 对的迭代器
+[...[`a`, `b`, `c`, `d`].entries()]// <- [[0, `a`], [1, `b`], [2, `c`], [3, `d`]]
+
+//8.4.9 Array.prototype[Symbol.iterator]
+//同values
+const list = [`a`, `b`, `c`, `d`]
+list[Symbol.iterator] === list.values// <- true
+[...list[Symbol.iterator]()]// <- [`a`, `b`, `c`, `d`]
+
+[...[`a`, `b`, `c`, `d`][Symbol.iterator]()]// <- [`a`, `b`, `c`, `d`]
