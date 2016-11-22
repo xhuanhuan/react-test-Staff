@@ -2106,3 +2106,594 @@ class Car {
 //使用集合来扩展使用元数据：考虑 weak
 //只挂心是否存在，用 Set
 //考虑创建缓存，用 Map
+
+
+
+//===========================================================
+//===========================================================
+//======Chapter 7:Managing Property Access with Proxies======
+//===========================================================
+//代理作为API和Object之间的中介,底层目标的看门人，可以允许某些操作通过，也可以阻止
+
+//===========================================================
+//===========7.1 Getting Started with Proxy==================
+
+//proxy.exposed
+const target = {}
+const handler = {}
+const proxy = new Proxy(target, handler)
+proxy.exposed = true
+console.log(target.exposed)// <- true
+console.log(proxy.somethingElse)// <- undefined
+
+//====7.1.1 Trapping get accessors======
+const handler = {
+  get (target, key) {
+    console.log(`Get on property "${ key }"`)
+    return target[key]
+  }
+}
+const target = {}
+const proxy = new Proxy(target, handler)
+proxy.numbers = 123
+console.log(proxy.numbers)
+// 'Get on property "numbers"'
+// <- 123
+console.log(proxy['something-else'])
+// 'Get on property "something-else"'
+// <- undefined
+
+//reflect:it is useful 当 代理陷阱提供一些默认行为
+const handler = {
+  get (target, key) {
+    console.log(`Get on property "${ key }"`)
+    return Reflect.get(target, key)
+  }
+}
+const target = {}
+const proxy = new Proxy(target, handler)
+
+//例：设置以下划线开头的属性不可访问
+const handler = {
+  get (target, key) {
+    const [prefix] = key//key='_secret',premix='_'
+    if (prefix === '_') {
+      throw new Error(`Property "${ key }" cannot be read through this proxy.`)
+    }
+    return Reflect.get(target, key)
+  }
+}
+const target = {}
+const proxy = new Proxy(target, handler)
+proxy._secret// <- Uncaught Error: Property "_secret" cannot be read through this proxy.
+
+//7.1.2 Trapping set accessors(set用于拦截属性赋值)
+const handler = {
+  get (target, key) {
+    invariant(key, 'get')
+    return Reflect.get(target, key)
+  },
+  set (target, key, value) {
+    invariant(key, 'set')
+    return Reflect.set(target, key, value)
+  }
+}
+function invariant (key, action) {
+  if (key.startsWith('_')) {
+    throw new Error(`Invalid attempt to ${ action } private "${ key }" property`)
+  }
+}
+const target = {}
+const proxy = new Proxy(target, handler)
+proxy.text = 'the great black pony ate your lunch'
+console.log(target.text)
+// <- 'the great black pony ate your lunch'
+proxy._secret
+// <- Error: Invalid attempt to get private "_secret" property
+proxy._secret = 'invalidate'
+// <- Error: Invalid attempt to set private "_secret" property
+
+//打包代理为函数
+function proxied () {
+  const target = {}
+  const handler = {
+    get (target, key) {
+      invariant(key, 'get')
+      return Reflect.get(target, key)
+    },
+    set (target, key, value) {
+      invariant(key, 'set')
+      return Reflect.set(target, key, value)
+    }
+  }
+  return new Proxy(target, handler)
+}
+function invariant (key, action) {
+  if (key.startsWith('_')) {
+    throw new Error(`Invalid attempt to ${ action } private "${ key }" property`)
+  }
+}
+
+// expose proxy to consumers
+function concealWithPrefix (original, prefix='_') {
+  const handler = {
+    get (original, key) {
+      invariant(key, 'get')
+      return Reflect.get(original, key)
+    },
+    set (original, key, value) {
+      invariant(key, 'set')
+      return Reflect.set(original, key, value)
+    }
+  }
+  return new Proxy(original, handler)
+}
+function invariant (key, action) {
+  if (key.startsWith(prefix)) {
+    throw new Error(`Invalid attempt to ${ action } private "${ key }" property`)
+  }
+}
+const target = {
+  _secret: 'secret',
+  text: 'everyone-can-read-this'
+}
+const proxy = concealWithPrefix(target)
+
+//7.1.3 Schema Validation with Proxies(模式验证)
+const validations = new Map()
+const validator = {
+  set (target, key, value) {
+    if (validations.has(key)) {
+      return validations[key](value)
+    }
+    return true
+  }
+}
+validations.set('age', validateAge)
+
+function validateAge (value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    throw new TypeError('Age must be a number')
+  }
+  if (value <= 0) {
+    throw new TypeError('Age must be a positive number')
+  }
+  return true
+}
+const person = {}
+const proxy = new Proxy(person, validator)
+proxy.age = 'twenty three'// <- TypeError: Age must be a number
+proxy.age = NaN// <- TypeError: Age must be a number
+proxy.age = 0// <- TypeError: Age must be a positive number
+proxy.age = 28
+console.log(person.age)// <- 28
+
+
+//=======================================
+//===7.2 Revocable Proxies(可撤销的代理)
+//关键字没变，但要返回{ proxy, revoke }，revoke被调用则抛出错误
+const target = {}
+const handler = {}
+const { proxy, revoke } = Proxy.revocable(target, handler)
+proxy.isUsable = true
+proxy.as = 'csa'
+console.log(proxy.isUsable)// <- true
+console.log(proxy.as)// <- csa
+revoke()
+console.log(proxy.as)// <- TypeError: illegal operation attempted on a revoked proxy
+//代理一旦撤销就不可恢复
+const proxies = new WeakMap()
+const storage = {}
+
+function getStorage () {
+  const handler = {}
+  const { proxy, revoke } = Proxy.revocable(storage, handler)
+  proxies.set(proxy, { revoke })
+  return proxy
+}
+
+function revokeStorage (proxy) {
+  proxies.get(proxy).revoke()
+  proxies.delete(proxy)
+}
+
+
+//===========================================
+//=======7.3 Proxy Trap Handlers(代理陷阱处理程序)========
+//介绍其他几种拦截用户操作（之前介绍了get set）
+
+//7.3.1 has Trap(针对 in 操作)
+const handler = {
+  get (target, key) {
+    invariant(key, 'get')
+    return Reflect.get(target, key)
+  },
+  set (target, key, value) {
+    invariant(key, 'set')
+    return Reflect.set(target, key, value)
+  },
+  has (target, key) {
+    if (key.startsWith('_')) {
+      return false
+    }
+    return Reflect.has(target, key)
+  }
+}
+function invariant (key, action) {
+  if (key.startsWith('_')) {
+    throw new Error(`Invalid attempt to ${ action } private "${ key }" property`)
+  }
+}
+const target = {
+  _secret: 'securely-stored-value',
+  wellKnown: 'publicly-known-value'
+}
+const proxy = new Proxy(target, handler)
+console.log('wellKnown' in proxy)// <- true
+console.log('_secret' in proxy)// <- false
+console.log('_secret' in target)// <- true
+
+//7.3.2 deleteProperty Trap
+const cat = { furBall: true }
+cat.furBall = undefined
+console.log('furBall' in cat)// <- true
+delete cat.furBall
+console.log('furBall' in cat)// <- false
+//
+const target = { _secret: 'foo' }
+const proxy = new Proxy(target, handler)
+console.log('_secret' in proxy)// <- false
+console.log('_secret' in target)// <- true
+delete proxy._secret
+console.log('_secret' in target)// <- false
+console.log('_secret' in proxy)// <- false
+//拦截删除操作：handler.deleteProperty
+const handler = {
+  get (target, key) {
+    invariant(key, 'get')
+    return Reflect.get(target, key)
+  },
+  set (target, key, value) {
+    invariant(key, 'set')
+    return Reflect.set(target, key, value)
+  },
+  deleteProperty (target, key) {
+    invariant(key, 'delete')
+    return Reflect.deleteProperty(target, key)
+  }
+}
+function invariant (key, action) {
+  if (key.startsWith('_')) {
+    throw new Error(`Invalid attempt to ${ action } private "${ key }" property`)
+  }
+}
+const target = { _secret: 'foo' }
+const proxy = new Proxy(target, handler)
+console.log('_secret' in proxy)// <- true
+delete proxy._secret// <- Error: Invalid attempt to delete private "_secret" property
+
+//7.3.3 defineProperty Trap
+//Object.defineProperty(target, key, descriptor)(添加新的属性)（该方法添加的属性是只读的，不可删除的，而手动添加的属性是读写的，可删除的）
+/*deicrioter设置：
+configurable = false：属性描述符不可改变，属性不可删除
+enumerable = false：隐藏于 for in，Object.keys
+writable = false:只读
+value = undefined：属性的初始值
+get = undefined：
+set = undefined
+*/
+const pizza = {}
+pizza.topping = 'ham'
+Object.defineProperty(pizza, 'extraCheese', { value: true })
+console.log(Object.getOwnPropertyDescriptor(pizza, 'topping'))// <- { value: 'ham', writable: true, enumerable: true, configurable: true }
+console.log(Object.getOwnPropertyDescriptor(pizza, 'extraCheese'))// <- { value: true, writable: false, enumerable: false, configurable: false }
+
+//拦截新增属性
+const handler = {
+  defineProperty (target, key, descriptor) {
+    return false
+  }
+}
+const target = {}
+const proxy = new Proxy(target, handler)
+proxy.extraCheese = false// <- TypeError: 'defineProperty' on proxy: trap returned false for property 'extraCheese'
+//拦截下划线开头的属性创建
+const handler = {
+  defineProperty (target, key, descriptor) {
+    invariant(key, 'define')
+    return Reflect.defineProperty(target, key, descriptor)
+  }
+}
+function invariant (key, action) {
+  if (key.startsWith('_')) {
+    throw new Error(`Invalid attempt to ${ action } private "${ key }" property`)
+  }
+}
+const target = {}
+const proxy = new Proxy(target, handler)
+proxy.topping = 'cheese'
+proxy._secretIngredient = 'salsa'// <- Error: Invalid attempt to define private "_secretIngredient" property
+
+//7.3.4 ownKeys Trap
+//handler.ownKeys返回所以属性
+const handler = {
+  ownKeys (target) {
+    return Reflect.ownKeys(target)
+  }
+}
+const target = {
+  [Symbol('id')]: 'ba3dfcc0',
+  _secret: 'sauce',
+  _toppingCount: 3,
+  toppings: ['cheese', 'tomato', 'bacon']
+}
+const proxy = new Proxy(target, handler)
+for (let key of Object.keys(proxy)) {
+  console.log(key)
+  // <- '_secret'
+  // <- '_toppingCount'
+  // <- 'toppings'
+}
+/*Reflect.ownKeys() return every own key on the object
+Object.getOwnPropertyNames() returns only non-symbol properties
+Object.getOwnPropertySymbols() returns only symbol properties
+Object.keys() returns only non-symbol enumerable properties
+for..in returns only non-symbol enumerable properties*/
+
+//属性中非字符串的总是返回true，过滤掉字符串中以下划线开头的属性
+const handler = {
+  ownKeys (target) {
+    return Reflect.ownKeys(target).filter(key => {
+      const isStringKey = typeof key === 'string'
+      if (isStringKey) {
+        return !key.startsWith('_')
+      }
+      return true
+    })
+  }
+}
+const target = {
+  [Symbol('id')]: 'ba3dfcc0',
+  _secret: 'sauce',
+  _toppingCount: 3,
+  toppings: ['cheese', 'tomato', 'bacon']
+}
+const proxy = new Proxy(target, handler)
+for (let key of Object.keys(proxy)) {
+  console.log(key)  // <- 'toppings'（Object。keys过滤掉了Symbol属性关键字）
+}
+for (let key of Object.getOwnPropertySymbols(proxy)) {
+  console.log(key)  // <- Symbol(id)
+}
+
+
+//================================================
+//=======7.4 Advanced Proxy Traps==============
+
+//7.4.1 getOwnPropertyDescriptor Trap(查询一些关键属性描述符时触发)
+const handler = {
+  getOwnPropertyDescriptor (target, key) {
+    invariant(key, 'get property descriptor for')
+    return Reflect.getOwnPropertyDescriptor(target, key)
+  }
+}
+function invariant (key, action) {
+  if (key.startsWith('_')) {
+    throw new Error(`Invalid attempt to ${ action } private "${ key }" property`)
+  }
+}
+const target = {}
+const proxy = new Proxy(target, handler)
+Reflect.getOwnPropertyDescriptor(proxy, '_secret')
+// <- Error: Invalid attempt to get property descriptor for private "_secret" property
+
+//返回undefined一遍更好的隐藏某些属性
+const handler = {
+  getOwnPropertyDescriptor (target, key) {
+    if (key.startsWith('_')) {
+      return
+    }
+    return Reflect.getOwnPropertyDescriptor(target, key)
+  }
+}
+const target = {
+  _secret: 'sauce',
+  topping: 'mozzarella'
+}
+const proxy = new Proxy(target, handler)
+console.log(Object.getOwnPropertyDescriptor(proxy, 'dressing'))// <- undefined
+console.log(Object.getOwnPropertyDescriptor(proxy, '_secret'))// <- undefined
+console.log(Object.getOwnPropertyDescriptor(proxy, 'topping'))// <- { value: 'mozzarella', writable: true, enumerable: true, configurable: true }
+
+
+//7.4.2 apply Trap(target函数被调用时触发)
+proxy('cats', 'dogs')
+proxy(...['cats', 'dogs'])
+proxy.call(null, 'cats', 'dogs')
+proxy.apply(null, ['cats', 'dogs'])
+Reflect.apply(proxy, null, ['cat', 'dogs'])
+//apply有三个参数：target,ctx,args,such as
+const handler = {
+  apply (target, ctx, args) {
+    return Reflect.apply(target, ctx, args)
+  }
+}
+//
+const twice = {
+  apply (target, ctx, args) {
+    return Reflect.apply(target, ctx, args) * 2
+  }
+}
+function sum (a, b) {
+  return a + b
+}
+const proxy = new Proxy(sum, twice)
+console.log(proxy(1, 2))// <- 6
+
+//另一个实例logger：确保logger始终返回自己，使用bind
+logger.test = logger.test.bind(logger)
+//使用get解决上述问题
+const selfish = {
+  get (target, key) {
+    const value = Reflect.get(target, key)
+    if (typeof value !== 'function') {
+      return value
+    }
+    return value.bind(target)
+  }
+}
+const proxy = new Proxy(logger, selfish)
+const something = {}
+console.log(logger.test() === logger)// <- true
+console.log(logger.test.call(something) === something)// <- true
+console.log(proxy.test() === logger)// <- true
+console.log(proxy.test.call(something) === logger)// <- true
+//每当我们通过代理获取一个方法的引用时，我们得到了一个新创建的绑定函数，使得本身与本身不相等
+console.log(proxy.test !== proxy.test)// <- true
+//上述问题用 WeakMap 解决
+function selfish (target) {
+  const cache = new WeakMap()
+  const handler = {
+    get (target, key) {
+      const value = Reflect.get(target, key)
+      if (typeof value !== 'function') {
+        return value
+      }
+      if (!cache.has(value)) {
+        cache.set(value, value.bind(target))
+      }
+      return cache.get(value)
+    }
+  }
+  const proxy = new Proxy(target, handler)
+  return proxy
+}
+const selfishLogger = selfish(logger)
+console.log(selfishLogger.test === selfishLogger.test)// <- true
+console.log(selfishLogger.test() === selfishLogger)// <- true
+console.log(selfishLogger.test.call(something) === selfishLogger)// <- true
+
+//7.4.3 construct Trap
+const handler = {
+  construct (Target, args) {
+    return new Target(...args)
+  }
+}
+//另一种写法，实质同上
+const handler = {
+  construct (Target, args) {
+    return Reflect.construct(Target, args)
+  }
+}
+//实例：
+const handler = {
+  construct (Target, args) {
+    const [ name ] = args
+    const target = Reflect.construct(Target, args)
+    target.name = name
+    return target
+  }
+}
+class Target {
+  hello () {
+    console.log(`Hello, ${ this.name }!`)
+  }
+}
+const target = new Target()
+target.name = `Nicolás`
+target.hello()// <- 'Hello, Nicolás'
+
+const ProxiedTarget = new Proxy(Target, handler)
+const proxy = new ProxiedTarget(`Nicolás`)
+proxy.hello()// <- 'Hello, Nicolás'
+
+//7.4.4 getPrototypeOf Trap
+//我们可以用handler.getprototypeof方法作为以下所有操作的陷阱
+/*Object.prototype.proto property
+Object.prototype.isPrototypeOf method
+Object.getPrototypeOf method
+Reflect.getPrototypeOf method
+instanceof operator*/
+
+//将代理Object原型设为数组
+const handler = {
+  getPrototypeOf: target => Array.prototype
+}
+const target = {}
+const proxy = new Proxy(target, handler)
+console.log(proxy instanceof Array)// <- true
+//只声明原型为数组是不够的，
+console.log(proxy.push)// <- undefined
+//修改使具有数组的方法
+const handler = {
+  getPrototypeOf: target => Array.prototype,
+  get (target, key) {
+    return (
+      Reflect.get(target, key) ||
+      Reflect.get(Array.prototype, key)
+    )
+  }
+}
+const target = {}
+const proxy = new Proxy(target, handler)
+console.log(proxy.push)// <- function push () { [native code] }
+proxy.push('first', 'second')
+console.log(proxy)// <- { 0: 'first', 1: 'second', length: 2 }
+proxy.pop()
+console.log(proxy)// <- { 0: 'first', length: 1 }
+
+//7.4.5 setPrototypeOf Trap
+const handler = {
+  setPrototypeOf (target, proto) {
+    Object.setPrototypeOf(target, proto)//等价于Reflect.setPrototypeOf
+  }
+}
+const base = {}
+function Target () {}
+const proxy = new Proxy(Target, handler)
+proxy.setPrototypeOf(proxy, base)
+console.log(proxy.prototype === base)// <- true
+//防止代理修改原型
+const handler = {
+  setPrototypeOf (target, proto) {
+    throw new Error('Changing the prototype is forbidden')
+  }
+}
+const base = {}
+function Target () {}
+const proxy = new Proxy(Target, handler)
+proxy.setPrototypeOf(proxy, base)// <- Error: Changing the prototype is forbidden
+
+//7.4.6 isExtensible Trap(可扩展)（主要用于记录、审计）
+//TypeError抛出 如果对象扩展性（代理）！= =对象的扩展性（目标）
+//如果你不希望消费者知道潜在对象是否可扩展，你可以利用isExtensible trap抛出一个错误
+
+//7.4.7 preventExtensions Trap
+//你可以使用handler.preventextensions限制object.preventextensions方法。当一个对象上的扩展被阻止时，新的属性不能被添加任何更长的：对象不能被扩展
+//使用WeakSet选择性的阻止
+
+//实例：weakset里面的可扩展，剩下的不可，Reflect.isExtensible(target)返回true则不可扩展，false则可扩展
+const canExtend = new WeakSet()
+const handler = {
+  preventExtensions (target) {
+    const canPrevent = !canExtend.has(target)
+    if (canPrevent) {
+      Object.preventExtensions(target)
+    }
+    return !Reflect.isExtensible(target)
+  }
+}
+const target = {}
+const proxy = new Proxy(target, handler)
+canExtend.add(target)
+Object.preventExtensions(proxy)
+// <- TypeError: 'preventExtensions' on proxy: trap returned falsy
+
+//增加一个代理
+const target = {}
+const proxy = new Proxy(target, handler)
+canExtend.add(target)
+canExtend.delete(target)
+Object.preventExtensions(proxy)
+console.log(Object.isExtensible(proxy))
+// <- false
