@@ -3240,3 +3240,236 @@ list[Symbol.iterator] === list.values// <- true
 [...list[Symbol.iterator]()]// <- [`a`, `b`, `c`, `d`]
 
 [...[`a`, `b`, `c`, `d`][Symbol.iterator]()]// <- [`a`, `b`, `c`, `d`]
+
+
+
+
+//=========================================================
+//==============Chapter 9: JavaScript Modules==============
+//=========================================================
+
+//=================
+//======9.1 CommonJS
+//每一个文件都是一个模块，具有隐含的局部作用域，动态导出提供交互的接口，动态导入依赖，通过require解决依赖function has (list, item) {
+//union.js
+  return list.includes(item)
+}
+function union (list, item) {
+  if (has(list, item)) {
+    return list
+  }
+  return [...list, item]
+}
+module.exports = union问题
+function has (list, item) {
+  return list.includes(item)
+}
+function union (list, item) {
+  if (has(list, item)) {
+    return list
+  }
+  return [...list, item]
+}
+module.exports = union
+//app.js
+const union = require(`./union`)
+console.log(union([1, 2], 3))// <- [1, 2, 3]
+console.log(union([1, 2], 2))// <- [1, 2]
+
+// views/item.js
+module.exports = model => `<li>
+  <span>${ model.amount }</span>
+  <span>x </span>
+  <span>${ model.name }</span>
+</li>`
+//app.js
+const renderItem = require(`./views/item`)
+const html = renderItem({
+  name: `Banana bread`,
+  amount: 3
+})
+console.log(html)
+/*<li>
+<span>3</span>
+<span>x</span>
+<span>Banana bread</span>
+</li>*/
+
+// views/list.js
+const renderItem = require(`./item`)
+module.exports = model => `<ul>
+  ${ model.map(renderItem).join(`\n`) }
+</ul>`
+// app.js
+const renderList = require(`./views/list`)
+const html = renderList([{
+  name: `Banana bread`,
+  amount: 3
+}, {
+  name: `Chocolate chip muffin`,
+  amount: 2
+}])
+console.log(html)
+/*<ul><li>
+<span>3</span>
+<span>x</span>
+<span>Banana bread</span>
+</li>
+<li>
+<span>2</span>
+<span>x</span>
+<span>Chocolate chip muffin</span>
+</li></ul>*/
+
+// render.js
+module.exports = function render(template, model) {
+  return require(`./views/${ template }`)(model)
+}
+// app.js
+const render = require(`./render`)
+console.log(render(`item`, {
+  name: `Banana bread`,
+  amount: 1
+}))//<li>...</li>
+console.log(render(`list`, [{
+  name: `Apple pie`,
+  amount: 2
+}, {
+  name: `Roasted almond`,
+  amount: 25
+}]))//<ul><li>...</li></ul>
+
+//===========================
+//====9.2 JavaScript Modules
+
+//9.2.1 Strict Mode
+//严格模式，默认是打开的，不允许某些功能，但也更快更安全
+/*不允许功能的包括：
+1.变量必须声明；
+2.函数的参数名称必须唯一
+3.禁止使用with
+4.分配只读属性会抛出错误
+5.八进制抛出错误，例如如0o840
+6.删除不可删的属性抛出错误
+7.delete prop 错误，应使用delete global[prop]
+8.eval不引入新的变量及其周边范围
+9.eval和arguments不能绑定或分配
+10.arguments 不会跟踪方法参数的改变
+11.不支持arguments.callee、arguments.caller、
+12.this 不会限制在object内
+13.不再能够用fn.caller和fn.arguments访问JavaScript堆栈
+14.保留字（e.g protected, static, interface, etc）不能被绑定
+*/
+
+//9.2.2 export Statements
+//可以出口任何东西如：字符串，object,数组，函数
+module.exports = `hello`
+module.exports = { hello: `world` }
+module.exports = [`hello`, 'world']
+module.exports = function hello () {}
+//===Exporting a Default Binding
+export default `hello`
+export default { hello: `world` }
+export default [`hello`, `world`]
+export default function hello () {}
+//动态导出
+function initialize () {
+  module.exports = `hello!`
+}
+initialize()
+//在ESM中导出只能在模块顶端完成，所以动态出口会报错
+function initialize () {
+  export default `hello!` // SyntaxError
+}
+initialize()
+
+//====Named Exports(导出多个)
+export let counter = 0
+export const count = () => counter++
+//不可独立声明，否则报错
+let counter = 0
+const count = () => counter++
+export counter // SyntaxError
+export count
+
+//===Exporting Lists
+//可独立声明
+let counter = 0
+const count = () => counter++
+export { counter, count }
+//使用别名 as increment
+let counter = 0
+const count = () => counter++
+export { counter, count as increment }
+//导出默认出口 as default
+let counter = 0
+const count = () => counter++
+export { counter as default, count as increment }
+//与上述代码等价
+let counter = 0
+const count = () => counter++
+export default counter
+export { count as increment }
+
+//===Bindings, Not Values
+export let counter = 0
+setInterval(() => counter++, 1000)//每一秒钟加1
+
+//===Exporting from another module
+export { increment } from './counter'
+increment()// ReferenceError: increment is not defined
+export { increment as add } from './counter'//right
+//ESM
+export * from './counter'//不包括默认的
+export { default as counter } from './counter'
+
+//------9.2.3 import Statements
+//./counter.js
+let counter = 0
+const increment = () => counter++
+const decrement = () => counter--
+export { counter as default, increment, decrement }
+//不会产生变量，在顶层直接执行
+import './counter'
+
+//==Importing Default Exports
+//CommonJS 使用require出口
+const counter = require(`./counter`)
+//es6
+import counter from './counter'
+console.log(counter)// <- 0
+
+//===Importing Named Exports
+import { increment } from './counter'
+import { increment, decrement } from './counter'//多个绑定
+import { increment as add } from './counter'//创建别名
+import counter, { increment } from './counter'//合并导出default和Named import
+import { default as counter, increment } from './counter'//显式地命名默认绑定，它需要一个别名
+//
+import counter, { increment } from './counter'
+console.log(counter) // <- 0
+increment()
+console.log(counter) // <- 1
+increment()
+console.log(counter) // <- 2
+
+//====Wildcard import statements(使用通配符，需要一个别名)
+import * as counter from './counter'
+counter.increment()
+counter.increment()
+console.log(counter.default) // <- 2
+
+
+//=============================================
+//===9.3 Practical Considerations for ES Modules
+//产生min-max范围内的随机数 函数、
+const random = (function() {
+  const calc = n => Math.floor(Math.random() * n)
+  const range = (max = 1, min = 0) => calc(max + 1 - min) + min
+  return { range }
+})()
+//ESM
+const calc = n => Math.floor(Math.random() * n)
+const range = (max = 1, min = 0) => calc(max + 1 - min) + min
+export { range }
+//构造一个module需要考虑许多问题：复杂度；庞大程度；API如何定义好；是否容易些测试文档；新增/移除功能否困难；
